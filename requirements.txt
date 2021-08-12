@@ -1,0 +1,11 @@
+EasyDict==1.7
+numpy==1.17.2
+opencv-python
+Cython
+scipy
+pandas
+pyyaml
+json_tricks
+scikit-image
+tensorboard
+torchvision
