@@ -154,7 +154,13 @@ class HourGlassModule(nn.Module):
   """
   https://github.com/milesial/Pytorch-UNet/tree/master/unet
   """
-  def __init__(self, n_channels, n_classes, bilinear=True, cascaded=False):
+  def __init__(self, 
+    n_channels, 
+    n_classes, 
+    filters=[32, 64, 128, 256, 512], 
+    bilinear=True, 
+    cascaded=False
+  ):
     super().__init__()
     self.n_channels = n_channels
     self.n_classes = n_classes
@@ -206,12 +212,12 @@ class LinearLayer(nn.Module):
   
   
 class HeadLayer(nn.Module):
-  def __init__(self, out_channels=256, cascaded=False):
+  def __init__(self, out_channels=256, cascaded=False, filters=[32, 64, 128]):
     super().__init__()
     self.relu = nn.ReLU()
     self._cascaded = cascaded
     
-    filters = [32, 64, 128, out_channels]
+    filters = filters + [out_channels]
     
     self.conv1 = nn.Conv2d(3, filters[0], kernel_size=7, stride=2, padding=3)
     self.bn1 = nn.BatchNorm2d(filters[0])
@@ -233,7 +239,14 @@ class HeadLayer(nn.Module):
   
 
 class CascadedUNet(nn.Module):
-  def __init__(self, n_stacks=1, n_joints=16, dim=64, cascaded=False):
+  def __init__(self, 
+    n_stacks=1, 
+    n_joints=16, 
+    dim=64, 
+    cascaded=False, 
+    head_layer_filters=[32, 64, 128],
+    hourglass_filters=[32, 64, 128, 256, 512]
+  ):
     super().__init__()
     self.relu = nn.ReLU()
     self.sigmoid = nn.Sigmoid()
@@ -243,11 +256,15 @@ class CascadedUNet(nn.Module):
     self._cascaded = cascaded
     self._dim = dim
     
-    self.head_layer = HeadLayer(out_channels=dim, cascaded=self._cascaded)
+    self.head_layer = HeadLayer(out_channels=dim, 
+                                cascaded=self._cascaded,
+                                filters=head_layer_filters)
   
     self.hourglass_modules = []
     for _ in range(self._n_stacks):
-      hourglass_i = HourGlassModule(dim, dim, cascaded=self._cascaded)
+      hourglass_i = HourGlassModule(dim, dim, 
+                                    cascaded=self._cascaded, 
+                                    filters=hourglass_filters)
       self.hourglass_modules.append(hourglass_i)
     
     # Add modules
@@ -322,12 +339,18 @@ class CascadedUNet(nn.Module):
 
 
 def get_pose_net(cfg, is_train, **kwargs):
-    num_layers = cfg.MODEL.EXTRA.NUM_LAYERS
-    model = CascadedUNet(n_stacks=1, 
-                         n_joints=cfg.MODEL.NUM_JOINTS,
-                         cascaded=cfg.MODEL.CASCADED)
+  head_layer_filters = cfg.MODEL.EXTRA.HEAD_LAYER_FILTERS
+  hourglass_filters = cfg.MODEL.EXTRA.HOURGLASS_FILTERS
+  n_hg_stacks = cfg.MODEL.EXTRA.N_HG_STACKS
+  print("head_layer_filters: ", head_layer_filters)
+  print("hourglass_filters: ", hourglass_filters)
+  model = CascadedUNet(n_stacks=n_hg_stacks, 
+                       n_joints=cfg.MODEL.NUM_JOINTS,
+                       cascaded=cfg.MODEL.CASCADED,
+                       head_layer_filters=head_layer_filters,
+                       hourglass_filters=hourglass_filters)
 
 #     if is_train and cfg.MODEL.INIT_WEIGHTS:
 #         model.init_weights(cfg.MODEL.PRETRAINED)
 
-    return model
+  return model
