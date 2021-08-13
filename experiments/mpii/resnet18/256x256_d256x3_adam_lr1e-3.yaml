@@ -1,4 +1,4 @@
-GPUS: '0'  # multiple: 0,1,2  (comma-separated)
+GPUS: '0'
 DATA_DIR: ''
 OUTPUT_DIR: 'output'
 LOG_DIR: 'log'
@@ -17,9 +17,9 @@ DATASET:
   ROT_FACTOR: 30
   SCALE_FACTOR: 0.25
 MODEL:
-  NAME: cascaded_unet
-  CASCADED: True
-  PRETRAINED: '' #'models/pytorch/imagenet/resnet50-19c8e357.pth'
+  NAME: pose_resnet
+  INIT_WEIGHTS: False
+  PRETRAINED: 'models/pytorch/imagenet/resnet50-19c8e357.pth'
   IMAGE_SIZE:
   - 256
   - 256
@@ -30,10 +30,18 @@ MODEL:
     HEATMAP_SIZE:
     - 64
     - 64
-    HEAD_LAYER_FILTERS: [ 32, 64, 128 ]
-    HOURGLASS_FILTERS: [ 32, 64, 128, 256, 512 ]
-    N_HG_STACKS: 1
-    NUM_LAYERS: 50
+    FINAL_CONV_KERNEL: 1
+    DECONV_WITH_BIAS: false
+    NUM_DECONV_LAYERS: 3
+    NUM_DECONV_FILTERS:
+    - 64
+    - 64
+    - 64
+    NUM_DECONV_KERNELS:
+    - 4
+    - 4
+    - 4
+    NUM_LAYERS: 18
 LOSS:
   USE_TARGET_WEIGHT: true
 TRAIN:
@@ -54,7 +62,7 @@ TRAIN:
   MOMENTUM: 0.9
   NESTEROV: false
 TEST:
-  BATCH_SIZE: 32
+  BATCH_SIZE: 8 # 32
   FLIP_TEST: false
   MODEL_FILE: ''
 DEBUG:

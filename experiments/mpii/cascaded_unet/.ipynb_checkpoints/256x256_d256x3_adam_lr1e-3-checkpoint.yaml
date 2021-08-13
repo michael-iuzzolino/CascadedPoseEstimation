@@ -30,17 +30,9 @@ MODEL:
     HEATMAP_SIZE:
     - 64
     - 64
-    FINAL_CONV_KERNEL: 1
-    DECONV_WITH_BIAS: false
-    NUM_DECONV_LAYERS: 3
-    NUM_DECONV_FILTERS:
-    - 256
-    - 256
-    - 256
-    NUM_DECONV_KERNELS:
-    - 4
-    - 4
-    - 4
+    HEAD_LAYER_FILTERS: [ 32, 64, 128 ]
+    HOURGLASS_FILTERS: [ 32, 64, 128, 256, 512 ]
+    N_HG_STACKS: 1
     NUM_LAYERS: 50
 LOSS:
   USE_TARGET_WEIGHT: true
