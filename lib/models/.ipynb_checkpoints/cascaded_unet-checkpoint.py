@@ -1,33 +1,13 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from models import tdl
 
-
-class OneStepDelayKernel(nn.Module):
-  """Single slot queue OSD kernel."""
-
-  def __init__(self, *args, **kwargs):
-    """Initialize OSD kernel."""
-    super().__init__()
-    self.reset()
-
-  def reset(self):
-    self.state = None
-
-  def forward(self, current_state):
-    if self.state is not None:
-      prev_state = self.state
-    else:
-      prev_state = torch.zeros_like(current_state)
-      prev_state.requires_grad = True
-
-    self.state = current_state.clone()
-
-    return prev_state
-  
   
 class BottleneckBlock(nn.Module):
-  def __init__(self, inplanes, outplanes, stride=1, downsample=False, cascaded=False):
+  def __init__(self, inplanes, outplanes, stride=1, 
+               downsample=False, cascaded=False, 
+               tdl_mode="OSD", tdl_alpha=0.0, **kwargs):
     super().__init__()
     halfplanes = outplanes // 2
     self._downsample = downsample
@@ -46,7 +26,8 @@ class BottleneckBlock(nn.Module):
     self.conv3 = nn.Conv2d(halfplanes, outplanes, kernel_size=1, padding=0)
     
     if self._cascaded:
-      self.tdline = OneStepDelayKernel()
+      tdl_kwargs = {"tdl_alpha": tdl_alpha}
+      self.tdline = tdl.setup_tdl_kernel(tdl_mode, kwargs)
     
   def set_time(self, t):
     self.t = t
@@ -159,7 +140,8 @@ class HourGlassModule(nn.Module):
     n_classes, 
     filters=[32, 64, 128, 256, 512], 
     bilinear=True, 
-    cascaded=False
+    cascaded=False,
+    **tdl_kwargs,
   ):
     super().__init__()
     self.n_channels = n_channels
@@ -170,9 +152,18 @@ class HourGlassModule(nn.Module):
     filters = [32, 64, 128, 256, 512]
 
     self.inc = DoubleConv(n_channels, filters[0])
-    self.bottleneck_block_1 = BottleneckBlock(filters[0], filters[1], downsample=True, cascaded=self._cascaded)
-    self.bottleneck_block_2 = BottleneckBlock(filters[1], filters[2], downsample=True, cascaded=self._cascaded)
-    self.bottleneck_block_3 = BottleneckBlock(filters[2], filters[3], downsample=True, cascaded=self._cascaded)
+    self.bottleneck_block_1 = BottleneckBlock(filters[0], filters[1], 
+                                              downsample=True, 
+                                              cascaded=self._cascaded,
+                                              **tdl_kwargs)
+    self.bottleneck_block_2 = BottleneckBlock(filters[1], filters[2], 
+                                              downsample=True, 
+                                              cascaded=self._cascaded,
+                                              **tdl_kwargs)
+    self.bottleneck_block_3 = BottleneckBlock(filters[2], filters[3], 
+                                              downsample=True, 
+                                              cascaded=self._cascaded,
+                                              **tdl_kwargs)
     
     factor = 2 if bilinear else 1
     self.down4 = Down(filters[3], filters[4] // factor)
@@ -212,7 +203,7 @@ class LinearLayer(nn.Module):
   
   
 class HeadLayer(nn.Module):
-  def __init__(self, out_channels=256, cascaded=False, filters=[32, 64, 128]):
+  def __init__(self, out_channels=256, cascaded=False, filters=[32, 64, 128], **tdl_kwargs):
     super().__init__()
     self.relu = nn.ReLU()
     self._cascaded = cascaded
@@ -223,9 +214,18 @@ class HeadLayer(nn.Module):
     self.bn1 = nn.BatchNorm2d(filters[0])
     self.mp1 = nn.MaxPool2d(2)
     
-    self.bottleneck_block_1 = BottleneckBlock(filters[0], filters[1], downsample=True, cascaded=self._cascaded)
-    self.bottleneck_block_2 = BottleneckBlock(filters[1], filters[2], downsample=True, cascaded=self._cascaded)
-    self.bottleneck_block_3 = BottleneckBlock(filters[2], filters[3], downsample=True, cascaded=self._cascaded)
+    self.bottleneck_block_1 = BottleneckBlock(filters[0], filters[1], 
+                                              downsample=True, 
+                                              cascaded=self._cascaded,
+                                              **tdl_kwargs)
+    self.bottleneck_block_2 = BottleneckBlock(filters[1], filters[2], 
+                                              downsample=True, 
+                                              cascaded=self._cascaded,
+                                              **tdl_kwargs)
+    self.bottleneck_block_3 = BottleneckBlock(filters[2], filters[3], 
+                                              downsample=True, 
+                                              cascaded=self._cascaded,
+                                              **tdl_kwargs)
   
   def forward(self, x):
     out = self.conv1(x)
@@ -245,7 +245,8 @@ class CascadedUNet(nn.Module):
     dim=64, 
     cascaded=False, 
     head_layer_filters=[32, 64, 128],
-    hourglass_filters=[32, 64, 128, 256, 512]
+    hourglass_filters=[32, 64, 128, 256, 512],
+    **tdl_kwargs,
   ):
     super().__init__()
     self.relu = nn.ReLU()
@@ -258,13 +259,15 @@ class CascadedUNet(nn.Module):
     
     self.head_layer = HeadLayer(out_channels=dim, 
                                 cascaded=self._cascaded,
-                                filters=head_layer_filters)
+                                filters=head_layer_filters,
+                                **tdl_kwargs)
   
     self.hourglass_modules = []
     for _ in range(self._n_stacks):
       hourglass_i = HourGlassModule(dim, dim, 
                                     cascaded=self._cascaded, 
-                                    filters=hourglass_filters)
+                                    filters=hourglass_filters,
+                                    **tdl_kwargs)
       self.hourglass_modules.append(hourglass_i)
     
     # Add modules
@@ -273,12 +276,13 @@ class CascadedUNet(nn.Module):
     
     self.bottleneck_block_1 = BottleneckBlock(dim, dim, 
                                               downsample=False, 
-                                              cascaded=self._cascaded)
+                                              cascaded=self._cascaded,
+                                              **tdl_kwargs)
     self.linear_layer = LinearLayer(dim, dim)
     self.out_conv = nn.Conv2d(dim, n_joints, kernel_size=1)
     
     if self._n_stacks > 1:
-      self.inter_conv_1 = nn.Conv2d(dim, dim, kernel_size=1)
+      self.inter_conv_1 = nn.Conv2d(n_joints, dim, kernel_size=1)
       self.inter_conv_2 = nn.Conv2d(n_joints, dim, kernel_size=1)
     
     # Compute n_timesteps
@@ -293,7 +297,11 @@ class CascadedUNet(nn.Module):
           continue
         n_timesteps += 1
     self.n_timesteps = n_timesteps + 1
-    
+  
+  @property
+  def timesteps(self):
+    return self.n_timesteps
+  
   def _set_time(self, t):
     for key, module in self.named_modules():
       if 'bottleneck_block' in key:
@@ -342,13 +350,14 @@ def get_pose_net(cfg, is_train, **kwargs):
   head_layer_filters = cfg.MODEL.EXTRA.HEAD_LAYER_FILTERS
   hourglass_filters = cfg.MODEL.EXTRA.HOURGLASS_FILTERS
   n_hg_stacks = cfg.MODEL.EXTRA.N_HG_STACKS
-  print("head_layer_filters: ", head_layer_filters)
-  print("hourglass_filters: ", hourglass_filters)
+  
   model = CascadedUNet(n_stacks=n_hg_stacks, 
                        n_joints=cfg.MODEL.NUM_JOINTS,
                        cascaded=cfg.MODEL.CASCADED,
                        head_layer_filters=head_layer_filters,
-                       hourglass_filters=hourglass_filters)
+                       hourglass_filters=hourglass_filters,
+                       tdl_mode=cfg.MODEL.EXTRA.TDL_MODE,
+                       tdl_alpha=cfg.MODEL.EXTRA.TDL_ALPHA,)
 
 #     if is_train and cfg.MODEL.INIT_WEIGHTS:
 #         model.init_weights(cfg.MODEL.PRETRAINED)

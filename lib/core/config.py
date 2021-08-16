@@ -32,6 +32,8 @@ config.CUDNN.ENABLED = True
 
 # pose_resnet related params
 POSE_RESNET = edict()
+POSE_RESNET.CASCADED = False
+POSE_RESNET.CASCADED_SCHEME = "parallel"  # parallel, serial
 POSE_RESNET.NUM_LAYERS = 50
 POSE_RESNET.DECONV_WITH_BIAS = False
 POSE_RESNET.NUM_DECONV_LAYERS = 3
@@ -56,6 +58,7 @@ CASCADED_UNET = edict()
 
 MODEL_EXTRAS = {
     'pose_resnet': POSE_RESNET,
+    'cascaded_pose_resnet': POSE_RESNET,
     'cascaded_unet': POSE_RESNET,
 }
 
@@ -73,6 +76,8 @@ config.MODEL.STYLE = 'pytorch'
 
 config.LOSS = edict()
 config.LOSS.USE_TARGET_WEIGHT = True
+config.LOSS.TD_LAMBDA = 1.0
+config.LOSS.NORMALIZE = True
 
 # DATASET related params
 config.DATASET = edict()
@@ -220,25 +225,25 @@ def get_model_name(cfg):
     name = cfg.MODEL.NAME
     full_name = cfg.MODEL.NAME
     extra = cfg.MODEL.EXTRA
-    if name in ['pose_resnet']:
-        name = '{model}_{num_layers}'.format(
-            model=name,
-            num_layers=extra.NUM_LAYERS)
-        deconv_suffix = ''.join(
-            'd{}'.format(num_filters)
-            for num_filters in extra.NUM_DECONV_FILTERS)
-        full_name = '{height}x{width}_{name}_{deconv_suffix}'.format(
-            height=cfg.MODEL.IMAGE_SIZE[1],
-            width=cfg.MODEL.IMAGE_SIZE[0],
-            name=name,
-            deconv_suffix=deconv_suffix)
+    td_lambda = cfg.LOSS.TD_LAMBDA
+    
+    if 'pose_resnet' in name:
+        if cfg.MODEL.CASCADED:
+            name = f'{name}_{extra.NUM_LAYERS}_cascaded_td({td_lambda})'
+            deconv_suffix = ''.join(f'd{num_filters}' for num_filters in extra.NUM_DECONV_FILTERS)
+            full_name = f'{cfg.MODEL.IMAGE_SIZE[1]}x{cfg.MODEL.IMAGE_SIZE[0]}_{name}_{deconv_suffix}'
+            full_name += f"_cascaded_td({td_lambda})"
+        else:
+            name = f'{name}_{extra.NUM_LAYERS}'
+            deconv_suffix = ''.join(f'd{num_filters}' for num_filters in extra.NUM_DECONV_FILTERS)
+            full_name = f'{cfg.MODEL.IMAGE_SIZE[1]}x{cfg.MODEL.IMAGE_SIZE[0]}_{name}_{deconv_suffix}'
     elif name == "cascaded_unet":
         if cfg.MODEL.CASCADED:
-            name = "Cascaded UNet"
+            name = f"Cascaded UNet_x{extra.N_HG_STACKS}_td({td_lambda})"
             full_name = "Cascaded UNet [full_name]"
         else:
             name = "UNet"
-            full_name = "UNet [full_name]"
+            full_name = f"UNet_x{extra.N_HG_STACKS} [full_name]"
     else:
         raise ValueError('Unkown model: {}'.format(cfg.MODEL))
 

@@ -27,7 +27,7 @@ from core.config import config
 from core.config import update_config
 from core.config import update_dir
 from core.config import get_model_name
-from core.loss import JointsMSELoss
+from core.loss import JointsMSELoss, TDLambda_JointsMSELoss
 from core.function import train
 from core.function import validate
 from utils.utils import get_optimizer
@@ -35,7 +35,9 @@ from utils.utils import save_checkpoint
 from utils.utils import create_logger
 
 import dataset
-import models
+import models.pose_resnet
+import models.cascaded_unet
+import models.cascaded_pose_resnet
 
 
 def parse_args():
@@ -91,11 +93,16 @@ def main():
     torch.backends.cudnn.enabled = config.CUDNN.ENABLED
     
     # Setup model
-    model = eval('models.'+config.MODEL.NAME+'.get_pose_net')(
-        config, is_train=True
-    )
+    if config.MODEL.NAME == "pose_resnet":
+      if config.MODEL.CASCADED:
+        model = models.cascaded_pose_resnet.get_pose_net(config, is_train=True)
+      else:
+        model = models.pose_resnet.get_pose_net(config, is_train=True)
+    elif config.MODEL.NAME == "cascaded_unet":
+        model = models.cascaded_unet.get_pose_net(config, is_train=True)
+      
     if config.MODEL.CASCADED:
-        config.MODEL.N_TIMESTEPS = model.n_timesteps
+        config.MODEL.N_TIMESTEPS = model.timesteps
     
     # copy model file
     print("Copying model file...")
@@ -128,9 +135,18 @@ def main():
     
     print("Setting up criterion, optimizer, and LR scheduling...")
     # define loss function (criterion) and optimizer
-    criterion = JointsMSELoss(
-        use_target_weight=config.LOSS.USE_TARGET_WEIGHT
-    ).cuda()
+    if config.MODEL.CASCADED:
+      criterion = TDLambda_JointsMSELoss(
+          use_target_weight=config.LOSS.USE_TARGET_WEIGHT,
+          n_timesteps=config.MODEL.N_TIMESTEPS,
+          lambda_val=config.LOSS.TD_LAMBDA, 
+          tdl_mode=config.MODEL.EXTRA.TDL_MODE, 
+          normalize_loss=config.LOSS.NORMALIZE
+      ).cuda()
+    else:
+      criterion = JointsMSELoss(
+          use_target_weight=config.LOSS.USE_TARGET_WEIGHT
+      ).cuda()
 
     optimizer = get_optimizer(config, model)
 
