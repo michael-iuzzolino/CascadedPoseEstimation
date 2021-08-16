@@ -9,6 +9,7 @@ from __future__ import division
 from __future__ import print_function
 
 import os
+import sys
 import yaml
 
 import numpy as np
@@ -45,27 +46,19 @@ POSE_RESNET.HEATMAP_SIZE = [64, 64]  # width * height, ex: 24 * 32
 POSE_RESNET.SIGMA = 2
 
 # pose_resnet related params
-CASCADED_UNET = edict()
+POSE_UNET = edict()
 # CASCADED_UNET.NUM_LAYERS = 50
-# CASCADED_UNET.DECONV_WITH_BIAS = False
-# CASCADED_UNET.NUM_DECONV_LAYERS = 3
-# CASCADED_UNET.NUM_DECONV_FILTERS = [256, 256, 256]
-# CASCADED_UNET.NUM_DECONV_KERNELS = [4, 4, 4]
-# CASCADED_UNET.FINAL_CONV_KERNEL = 1
-# CASCADED_UNET.TARGET_TYPE = 'gaussian'
-# CASCADED_UNET.HEATMAP_SIZE = [64, 64]  # width * height, ex: 24 * 32
-# CASCADED_UNET.SIGMA = 2
 
 MODEL_EXTRAS = {
     'pose_resnet': POSE_RESNET,
     'cascaded_pose_resnet': POSE_RESNET,
-    'cascaded_unet': POSE_RESNET,
+    'unet': POSE_UNET,
 }
 
 # common params for NETWORK
 config.MODEL = edict()
 config.MODEL.CASCADED = False
-config.MODEL.NAME = 'cascaded_unet'  # 'pose_resnet', 'cascaded_unet'
+config.MODEL.NAME = 'pose_resnet'  # 'pose_resnet', 'unet'
 config.MODEL.INIT_WEIGHTS = False
 config.MODEL.PRETRAINED = ''
 config.MODEL.NUM_JOINTS = 16
@@ -223,33 +216,20 @@ def update_dir(model_dir, log_dir, data_dir):
 
 def get_model_name(cfg):
     name = cfg.MODEL.NAME
-    full_name = cfg.MODEL.NAME
     extra = cfg.MODEL.EXTRA
-    td_lambda = cfg.LOSS.TD_LAMBDA
-    
-    if 'pose_resnet' in name:
-        if cfg.MODEL.CASCADED:
-            name = f'{name}_{extra.NUM_LAYERS}_cascaded_td({td_lambda})'
-            deconv_suffix = ''.join(f'd{num_filters}' for num_filters in extra.NUM_DECONV_FILTERS)
-            full_name = f'{cfg.MODEL.IMAGE_SIZE[1]}x{cfg.MODEL.IMAGE_SIZE[0]}_{name}_{deconv_suffix}'
-            full_name += f"_cascaded_td({td_lambda})"
-        else:
-            name = f'{name}_{extra.NUM_LAYERS}'
-            deconv_suffix = ''.join(f'd{num_filters}' for num_filters in extra.NUM_DECONV_FILTERS)
-            full_name = f'{cfg.MODEL.IMAGE_SIZE[1]}x{cfg.MODEL.IMAGE_SIZE[0]}_{name}_{deconv_suffix}'
-    elif name == "cascaded_unet":
-        if cfg.MODEL.CASCADED:
-            name = f"Cascaded UNet_x{extra.N_HG_STACKS}_td({td_lambda})"
-            full_name = "Cascaded UNet [full_name]"
-        else:
-            name = "UNet"
-            full_name = f"UNet_x{extra.N_HG_STACKS} [full_name]"
+    if "pose_resnet" in name:
+        name = f"pose_resnet_{extra.NUM_LAYERS}"
+    elif name == "unet":
+        name = f"unet_x{extra.N_HG_STACKS}"
     else:
-        raise ValueError('Unkown model: {}'.format(cfg.MODEL))
-
+        raise ValueError(f"Unkown model: {cfg.MODEL}")
+    
+    if cfg.MODEL.CASCADED:
+        suffix = f"cascaded_td({cfg.LOSS.TD_LAMBDA})"
+        name = f"{name}__{suffix}"
+    full_name = f"{name}"
     return name, full_name
 
 
-if __name__ == '__main__':
-    import sys
+if __name__ == "__main__":
     gen_config(sys.argv[1])

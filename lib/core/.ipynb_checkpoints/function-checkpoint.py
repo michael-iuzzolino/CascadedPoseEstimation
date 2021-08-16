@@ -36,7 +36,6 @@ def train(config, train_loader, model, criterion, optimizer, epoch,
   model.train()
   end = time.time()
 
-  print("config.MODEL.N_TIMESTEPS: ", config.MODEL.N_TIMESTEPS)
   for i, (input, target, target_weight, meta) in enumerate(train_loader):
     # measure data loading time
     data_time.update(time.time() - end)
@@ -75,7 +74,7 @@ def train(config, train_loader, model, criterion, optimizer, epoch,
     # measure elapsed time
     batch_time.update(time.time() - end)
     end = time.time()
-
+    
     if i % config.PRINT_FREQ == 0:
       msg = 'Epoch: [{0}][{1}/{2}]\t' \
             'Time {batch_time.val:.3f}s ({batch_time.avg:.3f}s)\t' \
@@ -98,6 +97,18 @@ def train(config, train_loader, model, criterion, optimizer, epoch,
       save_debug_images(config, input, meta, target, pred*4, output,
                         prefix)
 
+      
+def revert_flip(output_flipped, flip_pairs):
+    output_flipped = flip_back(output_flipped.cpu().numpy(),flip_pairs)
+    output_flipped = torch.from_numpy(output_flipped.copy()).cuda()
+
+    # feature is not aligned, shift flipped heatmap for higher accuracy
+    if config.TEST.SHIFT_HEATMAP:
+      output_flipped[:, :, :, 1:] = \
+        output_flipped.clone()[:, :, :, 0:-1]
+
+    output = (output + output_flipped) * 0.5
+    return output
 
 def validate(config, val_loader, val_dataset, model, criterion, output_dir,
              tb_log_dir, writer_dict=None):
@@ -134,33 +145,29 @@ def validate(config, val_loader, val_dataset, model, criterion, output_dir,
         input_flipped = torch.from_numpy(input_flipped).cuda()
 
         if config.MODEL.CASCADED:
+          ouputs = []
           for t in range(config.MODEL.N_TIMESTEPS):
-            output_flipped = model(input_flipped, t)[-1]
+            output_flipped = model(input_flipped, t)
+            output = revert_flip(output_flipped, val_dataset.flip_pairs)
+            outputs.append(output)
         else:
-          # compute output
           output_flipped = model(input_flipped)
-
-        output_flipped = flip_back(output_flipped.cpu().numpy(),
-                                   val_dataset.flip_pairs)
-        output_flipped = torch.from_numpy(output_flipped.copy()).cuda()
-
-        # feature is not aligned, shift flipped heatmap for higher accuracy
-        if config.TEST.SHIFT_HEATMAP:
-          output_flipped[:, :, :, 1:] = \
-            output_flipped.clone()[:, :, :, 0:-1]
-
-        output = (output + output_flipped) * 0.5
+          output = revert_flip(output_flipped, val_dataset.flip_pairs)
+        
       else:
         if config.MODEL.CASCADED:
+          outputs = []
           for t in range(config.MODEL.N_TIMESTEPS):
             output = model(input, t)
+            outputs.append(output)
         else:
-          # compute output
           output = model(input)
       
       # Compute loss
-      loss = criterion([output], target, target_weight)
-#             loss = criterion(output, target, target_weight)
+      if config.MODEL.CASCADED:
+        loss = criterion(outputs, target, target_weight)
+      else:
+        loss = criterion(output, target, target_weight)
       losses.update(loss.item(), num_images)
   
       # Measure accuracy

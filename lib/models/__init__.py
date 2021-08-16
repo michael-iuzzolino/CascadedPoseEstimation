@@ -9,4 +9,5 @@ from __future__ import division
 from __future__ import print_function
 
 import models.pose_resnet
-import models.cascaded_unet
+import models.cascaded_pose_resnet
+import models.unet

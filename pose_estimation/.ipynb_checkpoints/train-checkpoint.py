@@ -36,7 +36,7 @@ from utils.utils import create_logger
 
 import dataset
 import models.pose_resnet
-import models.cascaded_unet
+import models.unet
 import models.cascaded_pose_resnet
 
 
@@ -98,8 +98,8 @@ def main():
         model = models.cascaded_pose_resnet.get_pose_net(config, is_train=True)
       else:
         model = models.pose_resnet.get_pose_net(config, is_train=True)
-    elif config.MODEL.NAME == "cascaded_unet":
-        model = models.cascaded_unet.get_pose_net(config, is_train=True)
+    elif config.MODEL.NAME == "unet":
+        model = models.unet.get_pose_net(config, is_train=True)
       
     if config.MODEL.CASCADED:
         config.MODEL.N_TIMESTEPS = model.timesteps
@@ -123,7 +123,7 @@ def main():
                              config.MODEL.IMAGE_SIZE[1],
                              config.MODEL.IMAGE_SIZE[0]))
     
-    if not config.MODEL.NAME == "cascaded_unet":
+    if not config.MODEL.NAME == "unet":
         print("Adding graph to writer...")
         writer_dict['writer'].add_graph(model, (dump_input, ), verbose=False)
     
@@ -199,12 +199,11 @@ def main():
     best_perf = 0.0
     best_model = False
     for epoch in range(config.TRAIN.BEGIN_EPOCH, config.TRAIN.END_EPOCH):
-        lr_scheduler.step()
-
         # train for one epoch
         train(config, train_loader, model, criterion, optimizer, epoch,
               final_output_dir, tb_log_dir, writer_dict)
 
+        lr_scheduler.step()
 
         # evaluate on validation set
         perf_indicator = validate(config, valid_loader, valid_dataset, model,
