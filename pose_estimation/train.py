@@ -38,6 +38,7 @@ import dataset
 import models.pose_resnet
 import models.unet
 import models.cascaded_pose_resnet
+import models.pose_stacked_hg
 
 
 def parse_args():
@@ -100,6 +101,8 @@ def main():
         model = models.pose_resnet.get_pose_net(config, is_train=True)
     elif config.MODEL.NAME == "unet":
         model = models.unet.get_pose_net(config, is_train=True)
+    elif config.MODEL.NAME == "hourglass":
+        model = models.pose_stacked_hg.get_pose_net(config, is_train=True)
       
     if config.MODEL.CASCADED:
         config.MODEL.N_TIMESTEPS = model.timesteps
@@ -123,7 +126,7 @@ def main():
                              config.MODEL.IMAGE_SIZE[1],
                              config.MODEL.IMAGE_SIZE[0]))
     
-    if not config.MODEL.NAME == "unet":
+    if not config.MODEL.NAME in ["unet", "hourglass"]:
         print("Adding graph to writer...")
         writer_dict['writer'].add_graph(model, (dump_input, ), verbose=False)
     
@@ -200,8 +203,15 @@ def main():
     best_model = False
     for epoch in range(config.TRAIN.BEGIN_EPOCH, config.TRAIN.END_EPOCH):
         # train for one epoch
-        train(config, train_loader, model, criterion, optimizer, epoch,
-              final_output_dir, tb_log_dir, writer_dict)
+        train(config, 
+              train_loader, 
+              model, 
+              criterion, 
+              optimizer, 
+              epoch,
+              final_output_dir, 
+              tb_log_dir, 
+              writer_dict)
 
         lr_scheduler.step()
 
@@ -216,7 +226,7 @@ def main():
         else:
             best_model = False
 
-        logger.info('=> saving checkpoint to {}'.format(final_output_dir))
+        logger.info(f'=> saving checkpoint to {final_output_dir}')
         save_checkpoint({
             'epoch': epoch + 1,
             'model': get_model_name(config),
@@ -224,12 +234,20 @@ def main():
             'perf': perf_indicator,
             'optimizer': optimizer.state_dict(),
         }, best_model, final_output_dir)
-
-    final_model_state_file = os.path.join(final_output_dir,
-                                          'final_state.pth.tar')
-    logger.info('saving final model state to {}'.format(
-        final_model_state_file))
-    torch.save(model.module.state_dict(), final_model_state_file)
+        
+        # Save ckpt
+        if epoch % config.SAVE_CKPT_FREQ == 0:
+          last_savepath = os.path.join(final_output_dir, 'last_state.pth.tar')
+          logger.info(f'saving last model state to {last_savepath}')
+          torch.save({
+              "model": model.module.state_dict(), 
+              "optimizer": optimizer.state_dict(),
+          }, last_savepath)
+    
+    # Final ckpt save
+    final_savepath = os.path.join(final_output_dir, 'final_state.pth.tar')
+    logger.info(f'saving final model state to {final_savepath}')
+    torch.save(model.module.state_dict(), final_savepath)
     writer_dict['writer'].close()
 
 

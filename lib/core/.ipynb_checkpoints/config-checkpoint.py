@@ -24,6 +24,7 @@ config.DATA_DIR = ''
 config.GPUS = '0'
 config.WORKERS = 4
 config.PRINT_FREQ = 20
+config.SAVE_CKPT_FREQ = 4
 
 # Cudnn related params
 config.CUDNN = edict()
@@ -49,10 +50,13 @@ POSE_RESNET.SIGMA = 2
 POSE_UNET = edict()
 # CASCADED_UNET.NUM_LAYERS = 50
 
+POSE_HG = edict()
+
 MODEL_EXTRAS = {
     'pose_resnet': POSE_RESNET,
     'cascaded_pose_resnet': POSE_RESNET,
     'unet': POSE_UNET,
+    'hourglass': POSE_HG,
 }
 
 # common params for NETWORK
@@ -221,11 +225,14 @@ def get_model_name(cfg):
         name = f"pose_resnet_{extra.NUM_LAYERS}"
     elif name == "unet":
         name = f"unet_x{extra.N_HG_STACKS}"
+    elif name == "hourglass":
+        name = f"hourglass_x{extra.N_HG_STACKS}"
     else:
-        raise ValueError(f"Unkown model: {cfg.MODEL}")
+        raise ValueError(f"Unkown model: {name}")
     
     if cfg.MODEL.CASCADED:
         suffix = f"cascaded_td({cfg.LOSS.TD_LAMBDA})"
+        suffix += f"__{extra.CASCADED_SCHEME}"
         name = f"{name}__{suffix}"
     full_name = f"{name}"
     return name, full_name

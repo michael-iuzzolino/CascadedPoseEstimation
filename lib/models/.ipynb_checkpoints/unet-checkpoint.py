@@ -214,27 +214,27 @@ class HeadLayer(nn.Module):
     self.bn1 = nn.BatchNorm2d(filters[0])
     self.mp1 = nn.MaxPool2d(2)
     
-    self.bottleneck_block_1 = BottleneckBlock(filters[0], filters[1], 
-                                              downsample=True, 
-                                              cascaded=self._cascaded,
-                                              **tdl_kwargs)
-    self.bottleneck_block_2 = BottleneckBlock(filters[1], filters[2], 
-                                              downsample=True, 
-                                              cascaded=self._cascaded,
-                                              **tdl_kwargs)
-    self.bottleneck_block_3 = BottleneckBlock(filters[2], filters[3], 
-                                              downsample=True, 
-                                              cascaded=self._cascaded,
-                                              **tdl_kwargs)
+#     self.bottleneck_block_1 = BottleneckBlock(filters[0], filters[1], 
+#                                               downsample=True, 
+#                                               cascaded=self._cascaded,
+#                                               **tdl_kwargs)
+#     self.bottleneck_block_2 = BottleneckBlock(filters[1], filters[2], 
+#                                               downsample=True, 
+#                                               cascaded=self._cascaded,
+#                                               **tdl_kwargs)
+#     self.bottleneck_block_3 = BottleneckBlock(filters[2], filters[3], 
+#                                               downsample=True, 
+#                                               cascaded=self._cascaded,
+#                                               **tdl_kwargs)
   
   def forward(self, x):
     out = self.conv1(x)
     out = self.bn1(out)
     out = self.mp1(out)
     out = self.relu(out)
-    out = self.bottleneck_block_1(out)
-    out = self.bottleneck_block_2(out)
-    out = self.bottleneck_block_3(out)
+#     out = self.bottleneck_block_1(out)
+#     out = self.bottleneck_block_2(out)
+#     out = self.bottleneck_block_3(out)
     return out
   
 

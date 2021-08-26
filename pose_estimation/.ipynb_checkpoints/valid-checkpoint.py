@@ -12,6 +12,7 @@ from __future__ import print_function
 import argparse
 import os
 import pprint
+import numpy as np
 
 import torch
 import torch.nn.parallel
@@ -26,11 +27,14 @@ from core.config import config
 from core.config import update_config
 from core.config import update_dir
 from core.loss import JointsMSELoss
-from core.function import validate
+from core.function import validate, test
 from utils.utils import create_logger
 
 import dataset
-import models
+import models.pose_resnet
+import models.unet
+import models.cascaded_pose_resnet
+from collections import OrderedDict
 
 
 def parse_args():
@@ -59,17 +63,31 @@ def parse_args():
     parser.add_argument('--model-file',
                         help='model state file',
                         type=str)
+    parser.add_argument('--result_root',
+                        default="/hdd/mliuzzolino/CascadedPoseEstimation/results/",
+                        help='Root for results',
+                        type=str)
+    parser.add_argument('--threshold',
+                        type=float,
+                        default=0.5,
+                        help='Accuracy threshold [default=0.5]')
     parser.add_argument('--use-detect-bbox',
                         help='use detect bbox',
                         action='store_true')
     parser.add_argument('--flip-test',
                         help='use flip test',
                         action='store_true')
+    parser.add_argument('--load_best_ckpt',
+                        help='Load best checkpoint [default: load final]',
+                        action='store_true')
     parser.add_argument('--post-process',
                         help='use post process',
                         action='store_true')
     parser.add_argument('--shift-heatmap',
                         help='shift heatmap',
+                        action='store_true')
+    parser.add_argument('--force_overwrite',
+                        help='Force overwrite',
                         action='store_true')
     parser.add_argument('--coco-bbox-file',
                         help='coco detection bbox file',
@@ -99,33 +117,78 @@ def reset_config(config, args):
         config.TEST.COCO_BBOX_FILE = args.coco_bbox_file
 
 
+def get_state_dict(final_output_dir, config, logger, use_best=False):
+  if config.TEST.MODEL_FILE:
+    logger.info('=> loading model from {}'.format(config.TEST.MODEL_FILE))
+    state_dict = torch.load(config.TEST.MODEL_FILE)
+  else:
+    ckpt_path = os.path.join(final_output_dir, f"final_state.pth.tar")
+    
+    if os.path.exists(ckpt_path) and not use_best:
+      logger.info('=> loading model from {}'.format(ckpt_path))
+      state_dict = torch.load(ckpt_path)
+    else:
+      ckpt_path = os.path.join(final_output_dir, f"model_best.pth.tar")
+      logger.info('=> loading model from {}'.format(ckpt_path))
+      state_dict_src = torch.load(ckpt_path)
+      # Fix
+      state_dict = OrderedDict()
+      for k, v in state_dict_src.items():
+        k = k.replace("module.", "")
+        state_dict[k] = v
+        
+  return state_dict
+
+
 def main():
+    # Setup args and config
     args = parse_args()
     reset_config(config, args)
-
+    
+    # Setup logger
     logger, final_output_dir, tb_log_dir = create_logger(
         config, args.cfg, 'valid')
-
     logger.info(pprint.pformat(args))
     logger.info(pprint.pformat(config))
+    
+    # Setup output dir
+    output_dir = os.path.sep.join(final_output_dir.split(os.path.sep)[1:])
+    final_result_root = os.path.join(args.result_root, output_dir)
+    if not os.path.exists(final_result_root):
+      os.makedirs(final_result_root)
+      
+    # Set results save path
+    save_path = os.path.join(final_result_root, f"result__{args.threshold}.npy")
+    if os.path.exists(save_path) and not args.force_overwrite:
+      print(f"Already exists @ {save_path}. Exiting!")
+      exit()
+    
 
     # cudnn related setting
     cudnn.benchmark = config.CUDNN.BENCHMARK
     torch.backends.cudnn.deterministic = config.CUDNN.DETERMINISTIC
     torch.backends.cudnn.enabled = config.CUDNN.ENABLED
-
-    model = eval('models.'+config.MODEL.NAME+'.get_pose_net')(
-        config, is_train=False
-    )
-
-    if config.TEST.MODEL_FILE:
-        logger.info('=> loading model from {}'.format(config.TEST.MODEL_FILE))
-        model.load_state_dict(torch.load(config.TEST.MODEL_FILE))
-    else:
-        model_state_file = os.path.join(final_output_dir,
-                                        'final_state.pth.tar')
-        logger.info('=> loading model from {}'.format(model_state_file))
-        model.load_state_dict(torch.load(model_state_file))
+    
+    # Setup model
+    if config.MODEL.NAME == "pose_resnet":
+      if config.MODEL.CASCADED:
+        model = models.cascaded_pose_resnet.get_pose_net(config, is_train=False)
+      else:
+        model = models.pose_resnet.get_pose_net(config, is_train=False)
+    elif config.MODEL.NAME == "unet":
+        model = models.unet.get_pose_net(config, is_train=False)
+      
+    if config.MODEL.CASCADED:
+        config.MODEL.N_TIMESTEPS = model.timesteps
+    
+    # Load state dict
+    state_dict = get_state_dict(final_output_dir, 
+                                config, 
+                                logger, 
+                                use_best=args.load_best_ckpt)
+    
+    # Load model
+    model.load_state_dict(state_dict)
 
     gpus = [int(i) for i in config.GPUS.split(',')]
     model = torch.nn.DataParallel(model, device_ids=gpus).cuda()
@@ -157,8 +220,12 @@ def main():
     )
 
     # evaluate on validation set
-    validate(config, valid_loader, valid_dataset, model, criterion,
-             final_output_dir, tb_log_dir)
+    result = test(config, valid_loader, valid_dataset, model, criterion,
+                  final_output_dir, tb_log_dir, threshold=args.threshold)
+    
+    print(f"Saving to {save_path}")
+    np.save(save_path, result)
+    print("Complete.")
 
 
 if __name__ == '__main__':

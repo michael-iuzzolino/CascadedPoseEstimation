@@ -11,6 +11,7 @@ from __future__ import print_function
 import logging
 import time
 import os
+import sys
 
 import numpy as np
 import torch
@@ -47,7 +48,7 @@ def train(config, train_loader, model, criterion, optimizer, epoch,
     if config.MODEL.CASCADED:
       outputs = []
       for t in range(config.MODEL.N_TIMESTEPS):
-        output = model(input, t)
+        output = model(input, t, is_train=True)
         outputs.append(output)
 
       loss = criterion(outputs, target, target_weight)
@@ -109,6 +110,7 @@ def revert_flip(output_flipped, flip_pairs):
 
     output = (output + output_flipped) * 0.5
     return output
+  
 
 def validate(config, val_loader, val_dataset, model, criterion, output_dir,
              tb_log_dir, writer_dict=None):
@@ -130,7 +132,6 @@ def validate(config, val_loader, val_dataset, model, criterion, output_dir,
   with torch.no_grad():
     end = time.time()
     for i, (input, target, target_weight, meta) in enumerate(val_loader):
-
       num_images = input.size(0)
       
       # Set target and target_weight device
@@ -251,6 +252,117 @@ def validate(config, val_loader, val_dataset, model, criterion, output_dir,
 
   return perf_indicator
 
+
+def input_flip_fxn(input):
+  # this part is ugly, because pytorch has not supported negative index
+  # input_flipped = model(input[:, :, :, ::-1])
+  input_flipped = np.flip(input.cpu().numpy(), 3).copy()
+  input_flipped = torch.from_numpy(input_flipped).cuda()
+  return input_flipped
+
+
+def test(config, val_loader, val_dataset, model, threshold=0.5):
+  # switch to evaluate mode
+  model.eval()
+  
+  if config.MODEL.CASCADED:
+    acc_metric = [AverageMeter() for _ in range(config.MODEL.N_TIMESTEPS)]
+  else:
+    acc_metric = AverageMeter()
+  
+  with torch.no_grad():
+    for i, (input, target, _, _) in enumerate(val_loader):
+      sys.stdout.write(f"\rBatch {i+1:,}/{len(val_loader):,}...")
+      sys.stdout.flush()
+
+      # Set target and target_weight device
+      target = target.cuda(non_blocking=True)
+    
+      if config.TEST.FLIP_TEST:
+        input_fxn = lambda x: input_flip_fxn(x)
+        output_fxn = lambda x: revert_flip(x, val_dataset.flip_pairs)
+      else:
+        input_fxn = lambda x: x
+        output_fxn = lambda x: x
+
+      inputs = input_fxn(input)
+
+      if config.MODEL.CASCADED:
+        outputs = []
+        for t in range(config.MODEL.N_TIMESTEPS):
+          output = model(inputs, t)
+          output = output_fxn(output)
+          outputs.append(output)
+      else:
+        output = model(inputs)
+        output = output_fxn(output)
+
+      # Compute loss
+      if config.MODEL.CASCADED:
+        for acc_met, output in zip(acc_metric, outputs):
+          # Measure accuracy
+          _, avg_acc, cnt, pred = accuracy(output.cpu().numpy(),
+                                           target.cpu().numpy(),
+                                           threshold=threshold)
+          acc_met.update(avg_acc, cnt)
+      else:
+        # Measure accuracy
+        _, avg_acc, cnt, pred = accuracy(output.cpu().numpy(),
+                                         target.cpu().numpy(),
+                                         threshold=threshold)
+        acc_metric.update(avg_acc, cnt)
+    
+  if config.MODEL.CASCADED:
+    print("Performance")
+    for t, acc_met in enumerate(acc_metric):
+      avg_val = acc_met.avg * 100
+      print(f"{t}: {avg_val:0.2f}")
+    result = [ele.avg * 100 for ele in acc_metric]
+  else:
+    result = acc_metric.avg * 100
+    print(f"Average: {result:0.2f}%")
+  
+  return result
+
+
+def generate_outputs(config, val_loader, val_dataset, model):
+  # switch to evaluate mode
+  model.eval()
+  all_outputs = []
+  all_targets = []
+  with torch.no_grad():
+    end = time.time()
+    for i, (input, target, _, _) in enumerate(val_loader):
+      sys.stdout.write(f"\rBatch {i+1:,}/{len(val_loader):,}...")
+      sys.stdout.flush()
+      
+      # Set target
+      target = target.cuda(non_blocking=True)
+      
+      if config.TEST.FLIP_TEST:
+        input_fxn = lambda x: input_flip_fxn(x)
+        output_fxn = lambda x: revert_flip(x, val_dataset.flip_pairs)
+      else:
+        input_fxn = lambda x: x
+        output_fxn = lambda x: x
+
+      inputs = input_fxn(input)
+
+      if config.MODEL.CASCADED:
+        outputs = []
+        for t in range(config.MODEL.N_TIMESTEPS):
+          output = model(inputs, t)
+          output = output_fxn(output)
+          outputs.append(output)
+      else:
+        output = model(inputs)
+        output = output_fxn(output)
+      
+      all_outputs.append(output)
+      all_targets.append(target)
+
+  return all_outputs, all_targets
+  
 
 # markdown format output
 def _print_name_value(name_value, full_arch_name):
