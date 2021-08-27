@@ -34,6 +34,7 @@ import dataset
 import models.pose_resnet
 import models.unet
 import models.cascaded_pose_resnet
+import models.pose_stacked_hg
 from collections import OrderedDict
 
 
@@ -177,6 +178,8 @@ def main():
         model = models.pose_resnet.get_pose_net(config, is_train=False)
     elif config.MODEL.NAME == "unet":
         model = models.unet.get_pose_net(config, is_train=False)
+    elif config.MODEL.NAME == "hourglass":
+        model = models.pose_stacked_hg.get_pose_net(config, is_train=True)
       
     if config.MODEL.CASCADED:
         config.MODEL.N_TIMESTEPS = model.timesteps
@@ -220,8 +223,7 @@ def main():
     )
 
     # evaluate on validation set
-    result = test(config, valid_loader, valid_dataset, model, criterion,
-                  final_output_dir, tb_log_dir, threshold=args.threshold)
+    result = test(config, valid_loader, valid_dataset, model, threshold=args.threshold)
     
     print(f"Saving to {save_path}")
     np.save(save_path, result)

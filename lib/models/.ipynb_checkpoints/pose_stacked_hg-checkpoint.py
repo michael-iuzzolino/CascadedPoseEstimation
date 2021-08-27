@@ -81,12 +81,8 @@ class PoseNet(nn.Module):
                 residual = self.merge_preds[i](preds) + self.merge_features[i](feature)
                 if self._cascaded:
                     residual = self.tdlines[i](residual)
-                try:
-                    x = x + residual
-                except:
-                    print("\nx: ", x.shape)
-                    print("residual: ", residual.shape)
-                    exit()
+                x = x + residual
+                
         outs = torch.stack(combined_hm_preds, 1)
         if is_train:
             outs = outs[:,-1]
