@@ -7,15 +7,17 @@ class IdentityMapping(nn.Module):
   def __init__(self, in_channels, out_channels, mode="per_channel"):
     super(IdentityMapping, self).__init__()
     self._mode = mode
-    self._use_skip_conv = in_channels != out_channels
-    
+    self._setup_skip_conv(in_channels, out_channels)
     self._setup_alpha(out_channels)
+  
+  def _setup_skip_conv(self, in_channels, out_channels):
+    self._use_skip_conv = in_channels != out_channels
     self.skip_conv = nn.Conv2d(
       in_channels=in_channels,
       out_channels=out_channels,
       kernel_size=1
     )
-  
+      
   def _setup_alpha(self, out_channels):
     if self._mode == "per_channel":
       alpha = torch.zeros((out_channels), requires_grad=True).float()

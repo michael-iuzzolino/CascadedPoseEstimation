@@ -33,7 +33,7 @@ MODEL:
     HEATMAP_SIZE:
     - 64
     - 64
-    N_HG_STACKS: 2
+    N_HG_STACKS: 1
     NUM_LAYERS: 50
     TDL_MODE: "OSD"  # OSD, EWS
     TDL_ALPHA: 0.0
