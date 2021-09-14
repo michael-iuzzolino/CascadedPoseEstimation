@@ -82,7 +82,7 @@ def main():
     reset_config(config, args)
     
     print("Setting up loggers")
-    logger, final_output_dir, tb_log_dir = create_logger(
+    logger, output_dir, tb_log_dir = create_logger(
         config, args.cfg, 'train')
     logger.info(pprint.pformat(args))
     logger.info(pprint.pformat(config))
@@ -101,7 +101,7 @@ def main():
         model = models.pose_resnet.get_pose_net(config, is_train=True)
     elif config.MODEL.NAME == "unet":
         model = models.unet.get_pose_net(config, is_train=True)
-    elif config.MODEL.NAME == "hourglass":
+    elif config.MODEL.NAME == "pose_stacked_hg":
         model = models.pose_stacked_hg.get_pose_net(config, is_train=True)
       
     if config.MODEL.CASCADED:
@@ -112,7 +112,7 @@ def main():
     this_dir = os.path.dirname(__file__)
     shutil.copy2(
         os.path.join(this_dir, '../lib/models', config.MODEL.NAME + '.py'),
-        final_output_dir)
+        output_dir)
     
     print("Setting up writter...")
     writer_dict = {
@@ -126,7 +126,7 @@ def main():
                              config.MODEL.IMAGE_SIZE[1],
                              config.MODEL.IMAGE_SIZE[0]))
     
-    if not config.MODEL.NAME in ["unet", "hourglass"]:
+    if not config.MODEL.NAME in ["unet", "pose_stacked_hg"]:
         print("Adding graph to writer...")
         writer_dict['writer'].add_graph(model, (dump_input, ), verbose=False)
     
@@ -201,23 +201,28 @@ def main():
     print("Training model...")
     best_perf = 0.0
     best_model = False
-    for epoch in range(config.TRAIN.BEGIN_EPOCH, config.TRAIN.END_EPOCH):
+    for epoch_i in range(config.TRAIN.BEGIN_EPOCH, config.TRAIN.END_EPOCH):
         # train for one epoch
         train(config, 
               train_loader, 
               model, 
               criterion, 
               optimizer, 
-              epoch,
-              final_output_dir, 
+              epoch_i,
+              output_dir, 
               tb_log_dir, 
               writer_dict)
 
         lr_scheduler.step()
 
         # evaluate on validation set
-        perf_indicator = validate(config, valid_loader, valid_dataset, model,
-                                  criterion, final_output_dir, tb_log_dir,
+        perf_indicator = validate(config, 
+                                  valid_loader, 
+                                  valid_dataset, 
+                                  model,
+                                  criterion, 
+                                  output_dir, 
+                                  tb_log_dir,
                                   writer_dict)
 
         if perf_indicator > best_perf:
@@ -226,28 +231,31 @@ def main():
         else:
             best_model = False
 
-        logger.info(f'=> saving checkpoint to {final_output_dir}')
-        save_checkpoint({
-            'epoch': epoch + 1,
+        logger.info(f'=> saving checkpoint to {output_dir}')
+        save_dict = {
+            'epoch_i': epoch_i + 1,
             'model': get_model_name(config),
-            'state_dict': model.state_dict(),
+            'state_dict': model.module.state_dict(),
             'perf': perf_indicator,
             'optimizer': optimizer.state_dict(),
-        }, best_model, final_output_dir)
+        }
+        save_checkpoint(save_dict, best_model, output_dir)
         
-        # Save ckpt
-        if epoch % config.SAVE_CKPT_FREQ == 0:
-          last_savepath = os.path.join(final_output_dir, 'last_state.pth.tar')
-          logger.info(f'saving last model state to {last_savepath}')
-          torch.save({
-              "model": model.module.state_dict(), 
-              "optimizer": optimizer.state_dict(),
-          }, last_savepath)
     
     # Final ckpt save
-    final_savepath = os.path.join(final_output_dir, 'final_state.pth.tar')
-    logger.info(f'saving final model state to {final_savepath}')
-    torch.save(model.module.state_dict(), final_savepath)
+#     logger.info(f'saving final model state to {final_savepath}')
+    save_dict = {
+        'epoch_i': epoch_i + 1,
+        'model': get_model_name(config),
+        'state_dict': model.module.state_dict(),
+        'perf': perf_indicator,
+        'optimizer': optimizer.state_dict(),
+    }
+    save_checkpoint(save_dict, 
+                    False, 
+                    output_dir, 
+                    filename='final_state.pth.tar')
+    
     writer_dict['writer'].close()
 
 

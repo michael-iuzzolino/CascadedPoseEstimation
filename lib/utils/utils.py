@@ -75,15 +75,24 @@ def get_optimizer(cfg, model):
     elif cfg.TRAIN.OPTIMIZER == 'adam':
         optimizer = optim.Adam(
             model.parameters(),
-            lr=cfg.TRAIN.LR
+            lr=cfg.TRAIN.LR,
+            weight_decay=cfg.TRAIN.WD,
+        )
+    elif cfg.TRAIN.OPTIMIZER == 'rmsprop':
+        optimizer = optim.RMSprop(
+            model.parameters(),
+            lr=cfg.TRAIN.LR,
+            weight_decay=cfg.TRAIN.WD,
         )
 
     return optimizer
 
 
-def save_checkpoint(states, is_best, output_dir,
-                    filename='checkpoint.pth.tar'):
-    torch.save(states, os.path.join(output_dir, filename))
-    if is_best and 'state_dict' in states:
-        torch.save(states['state_dict'],
-                   os.path.join(output_dir, 'model_best.pth.tar'))
+def save_checkpoint(save_dict, is_best, output_dir, filename='checkpoint.pth.tar'):
+    # Checkpoint
+    ckpt_path = os.path.join(output_dir, filename)
+    torch.save(save_dict, ckpt_path)
+    
+    best_ckpt_path = os.path.join(output_dir, 'model_best.pth.tar')
+    if is_best:
+        torch.save(save_dict, best_ckpt_path)

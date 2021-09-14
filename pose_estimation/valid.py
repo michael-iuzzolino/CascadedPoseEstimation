@@ -118,25 +118,28 @@ def reset_config(config, args):
         config.TEST.COCO_BBOX_FILE = args.coco_bbox_file
 
 
-def get_state_dict(final_output_dir, config, logger, use_best=False):
+def get_state_dict(output_dir, config, logger, use_best=False):
   if config.TEST.MODEL_FILE:
     logger.info('=> loading model from {}'.format(config.TEST.MODEL_FILE))
     state_dict = torch.load(config.TEST.MODEL_FILE)
   else:
-    ckpt_path = os.path.join(final_output_dir, f"final_state.pth.tar")
+    ckpt_path = os.path.join(output_dir, f"final_state.pth.tar")
     
     if os.path.exists(ckpt_path) and not use_best:
       logger.info('=> loading model from {}'.format(ckpt_path))
       state_dict = torch.load(ckpt_path)
     else:
-      ckpt_path = os.path.join(final_output_dir, f"model_best.pth.tar")
+      ckpt_path = os.path.join(output_dir, f"model_best.pth.tar")
       logger.info('=> loading model from {}'.format(ckpt_path))
-      state_dict_src = torch.load(ckpt_path)
-      # Fix
-      state_dict = OrderedDict()
-      for k, v in state_dict_src.items():
-        k = k.replace("module.", "")
-        state_dict[k] = v
+      state_dict = torch.load(ckpt_path)
+  
+  if "state_dict" in state_dict:
+    state_dict = state_dict["state_dict"]
+#       # Fix
+#       state_dict = OrderedDict()
+#       for k, v in state_dict_src.items():
+#         k = k.replace("module.", "")
+#         state_dict[k] = v
         
   return state_dict
 
@@ -147,14 +150,14 @@ def main():
     reset_config(config, args)
     
     # Setup logger
-    logger, final_output_dir, tb_log_dir = create_logger(
+    logger, output_dir, tb_log_dir = create_logger(
         config, args.cfg, 'valid')
     logger.info(pprint.pformat(args))
     logger.info(pprint.pformat(config))
     
     # Setup output dir
-    output_dir = os.path.sep.join(final_output_dir.split(os.path.sep)[1:])
-    final_result_root = os.path.join(args.result_root, output_dir)
+    output_dir_tmp = os.path.sep.join(output_dir.split(os.path.sep)[1:])
+    final_result_root = os.path.join(args.result_root, output_dir_tmp)
     if not os.path.exists(final_result_root):
       os.makedirs(final_result_root)
       
@@ -164,7 +167,6 @@ def main():
       print(f"Already exists @ {save_path}. Exiting!")
       exit()
     
-
     # cudnn related setting
     cudnn.benchmark = config.CUDNN.BENCHMARK
     torch.backends.cudnn.deterministic = config.CUDNN.DETERMINISTIC
@@ -178,19 +180,19 @@ def main():
         model = models.pose_resnet.get_pose_net(config, is_train=False)
     elif config.MODEL.NAME == "unet":
         model = models.unet.get_pose_net(config, is_train=False)
-    elif config.MODEL.NAME == "hourglass":
-        model = models.pose_stacked_hg.get_pose_net(config, is_train=True)
+    elif config.MODEL.NAME == "pose_stacked_hg":
+        model = models.pose_stacked_hg.get_pose_net(config, is_train=False)
       
     if config.MODEL.CASCADED:
         config.MODEL.N_TIMESTEPS = model.timesteps
     
     # Load state dict
-    state_dict = get_state_dict(final_output_dir, 
+    state_dict = get_state_dict(output_dir, 
                                 config, 
                                 logger, 
                                 use_best=args.load_best_ckpt)
     
-    # Load model
+    # Load previous model
     model.load_state_dict(state_dict)
 
     gpus = [int(i) for i in config.GPUS.split(',')]

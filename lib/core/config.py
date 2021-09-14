@@ -18,10 +18,10 @@ from easydict import EasyDict as edict
 
 config = edict()
 
-config.OUTPUT_DIR = ''
-config.LOG_DIR = ''
-config.DATA_DIR = ''
-config.GPUS = '0'
+config.OUTPUT_DIR = ""
+config.LOG_DIR = ""
+config.DATA_DIR = ""
+config.GPUS = "0"
 config.WORKERS = 4
 config.PRINT_FREQ = 20
 config.SAVE_CKPT_FREQ = 4
@@ -42,7 +42,7 @@ POSE_RESNET.NUM_DECONV_LAYERS = 3
 POSE_RESNET.NUM_DECONV_FILTERS = [256, 256, 256]
 POSE_RESNET.NUM_DECONV_KERNELS = [4, 4, 4]
 POSE_RESNET.FINAL_CONV_KERNEL = 1
-POSE_RESNET.TARGET_TYPE = 'gaussian'
+POSE_RESNET.TARGET_TYPE = "gaussian"
 POSE_RESNET.HEATMAP_SIZE = [64, 64]  # width * height, ex: 24 * 32
 POSE_RESNET.SIGMA = 2
 
@@ -51,25 +51,29 @@ POSE_UNET = edict()
 # CASCADED_UNET.NUM_LAYERS = 50
 
 POSE_HG = edict()
+POSE_HG.MERGE_MODE = "concat"
+POSE_HG.CASCADED = False
 
 MODEL_EXTRAS = {
-    'pose_resnet': POSE_RESNET,
-    'cascaded_pose_resnet': POSE_RESNET,
-    'unet': POSE_UNET,
-    'hourglass': POSE_HG,
+    "pose_resnet": POSE_RESNET,
+    "cascaded_pose_resnet": POSE_RESNET,
+    "unet": POSE_UNET,
+    "hourglass": POSE_HG,
 }
 
 # common params for NETWORK
 config.MODEL = edict()
+config.MODEL.MERGE_MODE = "concat"
 config.MODEL.CASCADED = False
-config.MODEL.NAME = 'pose_resnet'  # 'pose_resnet', 'unet'
+config.MODEL.NAME = "pose_resnet"  # "pose_resnet", "unet"
 config.MODEL.INIT_WEIGHTS = False
-config.MODEL.PRETRAINED = ''
+config.MODEL.PRETRAINED = ""
 config.MODEL.NUM_JOINTS = 16
+config.MODEL.NUM_CHANNELS = 144  # 144, 256
 config.MODEL.IMAGE_SIZE = [256, 256]  # width * height, ex: 192 * 256
 config.MODEL.EXTRA = MODEL_EXTRAS[config.MODEL.NAME]
 
-config.MODEL.STYLE = 'pytorch'
+config.MODEL.STYLE = "pytorch"
 
 config.LOSS = edict()
 config.LOSS.USE_TARGET_WEIGHT = True
@@ -78,12 +82,12 @@ config.LOSS.NORMALIZE = True
 
 # DATASET related params
 config.DATASET = edict()
-config.DATASET.ROOT = ''
-config.DATASET.DATASET = 'mpii'
-config.DATASET.TRAIN_SET = 'train'
-config.DATASET.TEST_SET = 'valid'
-config.DATASET.DATA_FORMAT = 'jpg'
-config.DATASET.HYBRID_JOINTS_TYPE = ''
+config.DATASET.ROOT = ""
+config.DATASET.DATASET = "mpii"
+config.DATASET.TRAIN_SET = "train"
+config.DATASET.TEST_SET = "valid"
+config.DATASET.DATA_FORMAT = "jpg"
+config.DATASET.HYBRID_JOINTS_TYPE = ""
 config.DATASET.SELECT_DATA = False
 
 # training data augmentation
@@ -98,7 +102,7 @@ config.TRAIN.LR_FACTOR = 0.1
 config.TRAIN.LR_STEP = [90, 110]
 config.TRAIN.LR = 0.001
 
-config.TRAIN.OPTIMIZER = 'adam'
+config.TRAIN.OPTIMIZER = "adam"
 config.TRAIN.MOMENTUM = 0.9
 config.TRAIN.WD = 0.0001
 config.TRAIN.NESTEROV = False
@@ -109,7 +113,7 @@ config.TRAIN.BEGIN_EPOCH = 0
 config.TRAIN.END_EPOCH = 140
 
 config.TRAIN.RESUME = False
-config.TRAIN.CHECKPOINT = ''
+config.TRAIN.CHECKPOINT = ""
 
 config.TRAIN.BATCH_SIZE = 32
 config.TRAIN.SHUFFLE = True
@@ -128,9 +132,9 @@ config.TEST.USE_GT_BBOX = False
 # nms
 config.TEST.OKS_THRE = 0.5
 config.TEST.IN_VIS_THRE = 0.0
-config.TEST.COCO_BBOX_FILE = ''
+config.TEST.COCO_BBOX_FILE = ""
 config.TEST.BBOX_THRE = 1.0
-config.TEST.MODEL_FILE = ''
+config.TEST.MODEL_FILE = ""
 config.TEST.IMAGE_THRE = 0.0
 config.TEST.NMS_THRE = 1.0
 
@@ -144,31 +148,31 @@ config.DEBUG.SAVE_HEATMAPS_PRED = False
 
 
 def _update_dict(k, v):
-    if k == 'DATASET':
-        if 'MEAN' in v and v['MEAN']:
-            v['MEAN'] = np.array([eval(x) if isinstance(x, str) else x
-                                  for x in v['MEAN']])
-        if 'STD' in v and v['STD']:
-            v['STD'] = np.array([eval(x) if isinstance(x, str) else x
-                                 for x in v['STD']])
-    if k == 'MODEL':
-        if 'EXTRA' in v and 'HEATMAP_SIZE' in v['EXTRA']:
-            if isinstance(v['EXTRA']['HEATMAP_SIZE'], int):
-                v['EXTRA']['HEATMAP_SIZE'] = np.array(
-                    [v['EXTRA']['HEATMAP_SIZE'], v['EXTRA']['HEATMAP_SIZE']])
+    if k == "DATASET":
+        if "MEAN" in v and v["MEAN"]:
+            v["MEAN"] = np.array([eval(x) if isinstance(x, str) else x
+                                  for x in v["MEAN"]])
+        if "STD" in v and v["STD"]:
+            v["STD"] = np.array([eval(x) if isinstance(x, str) else x
+                                 for x in v["STD"]])
+    if k == "MODEL":
+        if "EXTRA" in v and "HEATMAP_SIZE" in v["EXTRA"]:
+            if isinstance(v["EXTRA"]["HEATMAP_SIZE"], int):
+                v["EXTRA"]["HEATMAP_SIZE"] = np.array(
+                    [v["EXTRA"]["HEATMAP_SIZE"], v["EXTRA"]["HEATMAP_SIZE"]])
             else:
-                v['EXTRA']['HEATMAP_SIZE'] = np.array(
-                    v['EXTRA']['HEATMAP_SIZE'])
-        if 'IMAGE_SIZE' in v:
-            if isinstance(v['IMAGE_SIZE'], int):
-                v['IMAGE_SIZE'] = np.array([v['IMAGE_SIZE'], v['IMAGE_SIZE']])
+                v["EXTRA"]["HEATMAP_SIZE"] = np.array(
+                    v["EXTRA"]["HEATMAP_SIZE"])
+        if "IMAGE_SIZE" in v:
+            if isinstance(v["IMAGE_SIZE"], int):
+                v["IMAGE_SIZE"] = np.array([v["IMAGE_SIZE"], v["IMAGE_SIZE"]])
             else:
-                v['IMAGE_SIZE'] = np.array(v['IMAGE_SIZE'])
+                v["IMAGE_SIZE"] = np.array(v["IMAGE_SIZE"])
     for vk, vv in v.items():
         if vk in config[k]:
             config[k][vk] = vv
         else:
-            raise ValueError("{}.{} not exist in config.py".format(k, vk))
+            raise ValueError(f"{k}.{vk} not exist in config.py")
 
 
 def update_config(config_file):
@@ -180,12 +184,12 @@ def update_config(config_file):
                 if isinstance(v, dict):
                     _update_dict(k, v)
                 else:
-                    if k == 'SCALES':
+                    if k == "SCALES":
                         config[k][0] = (tuple(v))
                     else:
                         config[k] = v
             else:
-                raise ValueError("{} not exist in config.py".format(k))
+                raise ValueError(f"{k} not exist in config.py")
 
 
 def gen_config(config_file):
@@ -194,7 +198,7 @@ def gen_config(config_file):
         if isinstance(v, edict):
             cfg[k] = dict(v)
 
-    with open(config_file, 'w') as f:
+    with open(config_file, "w") as f:
         yaml.dump(dict(cfg), f, default_flow_style=False)
 
 
@@ -225,7 +229,7 @@ def get_model_name(cfg):
         name = f"pose_resnet_{extra.NUM_LAYERS}"
     elif name == "unet":
         name = f"unet_x{extra.N_HG_STACKS}"
-    elif name == "hourglass":
+    elif name == "pose_stacked_hg":
         name = f"hourglass_x{extra.N_HG_STACKS}"
     else:
         raise ValueError(f"Unkown model: {name}")

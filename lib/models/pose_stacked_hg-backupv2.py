@@ -47,8 +47,46 @@ class IdentityMapping(nn.Module):
     return gated_identity
 
 
-class MultiScaleResblock(nn.Module):
+class VanillaResblock(nn.Module):
   def __init__(self, in_channels, out_channels, **kwargs):
+    super(VanillaResblock, self).__init__()
+    self.conv1 = nn.Conv2d(
+        in_channels=in_channels, 
+        out_channels=out_channels, 
+        kernel_size=3, 
+        stride=1, 
+        padding=1,
+    )
+    self.conv2 = nn.Conv2d(
+        in_channels=out_channels, 
+        out_channels=out_channels, 
+        kernel_size=3, 
+        stride=1, 
+        padding=1,
+    )
+    self.identity_mapping = IdentityMapping(
+        in_channels=in_channels,
+        out_channels=out_channels,
+        mode=kwargs.get("identity_gating_mode", "per_channel"),
+    )
+    
+    self.bn1 = nn.BatchNorm2d(out_channels)
+    self.bn2 = nn.BatchNorm2d(out_channels)
+    self.relu = nn.ReLU()
+    
+  def forward(self, x):
+    out = self.relu(self.bn1(self.conv1(x)))
+    residual = self.relu(self.bn2(self.conv2(out)))
+    identity = self.identity_mapping(x)
+    
+    # Identity + Residual
+    out = residual + identity
+    
+    return out
+  
+  
+class MultiScaleResblock(nn.Module):
+  def __init__(self, in_channels, **kwargs):
     super(MultiScaleResblock, self).__init__()
     
     self.conv1 = nn.Conv2d(
@@ -78,11 +116,6 @@ class MultiScaleResblock(nn.Module):
         mode=kwargs.get("identity_gating_mode", "per_channel"),
     )
     
-    self._remap_output_dim = False
-    if in_channels != out_channels:
-      self._remap_output_dim = True
-      self._remap_conv = nn.Conv2d(in_channels, out_channels, kernel_size=1)
-    
     self.bn1 = nn.BatchNorm2d(in_channels//2)
     self.bn2 = nn.BatchNorm2d(in_channels//4)
     self.bn3 = nn.BatchNorm2d(in_channels//4)
@@ -94,12 +127,9 @@ class MultiScaleResblock(nn.Module):
     out3 = self.relu(self.bn3(self.conv3(out2)))
     residual = torch.cat([out1, out2, out3], dim=1)
     identity = self.identity_mapping(x)
-      
+    
     # Identity + Residual
     out = residual + identity
-    
-    if self._remap_output_dim:
-      out = self._remap_conv(out)
     
     return out
   
@@ -119,18 +149,9 @@ class HeadLayer(nn.Module):
     self.relu = nn.ReLU()
     
     self.pool = nn.MaxPool2d((2,2))
-    self.res_1 = MultiScaleResblock(
-        in_channels=64, 
-        out_channels=128, 
-    )
-    self.res_2 = MultiScaleResblock(
-        in_channels=128, 
-        out_channels=128, 
-    )
-    self.res_3 = MultiScaleResblock(
-        in_channels=128, 
-        out_channels=in_channels, 
-    )
+    self.res_1 = VanillaResblock(64, 128)
+    self.res_2 = VanillaResblock(128, 128)
+    self.res_3 = VanillaResblock(128, in_channels)
   
   def forward(self, x):
     out = self.relu(self.bn(self.conv(x)))
@@ -147,8 +168,6 @@ class MergeDecoder(nn.Module):
     self._mode = mode
     self._cascaded = kwargs.get("cascaded")
     self._cascaded_scheme = kwargs.get("cascaded_scheme", "parallel")
-#     print("self._cascaded_scheme: ", self._cascaded_scheme)
-    
     self._time_bn = kwargs.get("time_bn", kwargs["cascaded"])
     
     self.up = nn.Upsample(scale_factor=2, mode="nearest")
@@ -158,8 +177,7 @@ class MergeDecoder(nn.Module):
         kernel_size=3, 
         stride=1, 
         padding=1,
-    )
-    self.bn = nn.BatchNorm2d(out_channels)
+    )  
     self.relu = nn.ReLU()
 
     # TDL
@@ -182,7 +200,6 @@ class MergeDecoder(nn.Module):
       self._res_active = True
     
   def forward(self, x, down_feature, t=None):
-#     print("MERGE Layer: ", self.layer_i)
     residual = self.up(x)
     
     # TDL if cascaded
@@ -190,30 +207,124 @@ class MergeDecoder(nn.Module):
       residual = self.tdline(residual)
     
       if not self._res_active:
-        residual = residual * 0.0
+        mask = 0.0
+        residual = residual * mask
         
     if self._mode == "addition":
       out = residual + down_feature
     elif self._mode == "concat":
       out = torch.cat([residual, down_feature], dim=1)
       
-    out = self.relu(self.bn(self.decode_conv(out)))
+    out = self.relu(self.decode_conv(out))
     return out
   
   
+# class HourGlass(nn.Module):
+#   def __init__(self, in_channels, n_joints=16, merge_mode="addition", **kwargs):
+#     super(HourGlass, self).__init__()
+#     self._merge_mode = merge_mode
+    
+#     self.encode_1 = nn.Sequential(
+#         VanillaResblock(
+#             in_channels=in_channels, 
+#             out_channels=in_channels, 
+#             **kwargs
+#         ),
+#         nn.MaxPool2d((2,2)),
+#         nn.Conv2d(in_channels, 64, kernel_size=3, stride=1, padding=1),
+#     )
+    
+#     self.encode_2 = nn.Sequential(
+#         MultiScaleResblock(in_channels=64, **kwargs),
+#         nn.MaxPool2d((2,2)),
+#         nn.Conv2d(64, 128, kernel_size=3, stride=1, padding=1),
+#     )
+    
+#     self.encode_3 = nn.Sequential(
+#         MultiScaleResblock(in_channels=128, **kwargs),
+#         nn.MaxPool2d((2,2)),
+#         nn.Conv2d(128, 256, kernel_size=3, stride=1, padding=1),
+#     )
+    
+#     self.encode_4 = nn.Sequential(
+#         MultiScaleResblock(in_channels=256, **kwargs),
+#         nn.MaxPool2d((2,2)),
+#         nn.Conv2d(256, 256, kernel_size=3, stride=1, padding=1),
+#     )
+    
+#     self.pool = nn.MaxPool2d((2,2))
+    
+#     if self._merge_mode == "concat":
+#       decoder_channels = [(512, 128), (256, 64), (128, 32)]
+#     elif self._merge_mode == "addition":
+#       decoder_channels = [(256, 128), (128, 64), (64, 32)]
+      
+#     self.decode_1 = MergeDecoder(
+#         mode=self._merge_mode,
+#         in_channels=decoder_channels[0][0],
+#         out_channels=decoder_channels[0][1],
+#         **kwargs,
+#     )
+#     self.decode_2 = MergeDecoder(
+#         mode=self._merge_mode,
+#         in_channels=decoder_channels[1][0],
+#         out_channels=decoder_channels[1][1],
+#         **kwargs,
+#     )
+#     self.decode_3 = MergeDecoder(
+#         mode=self._merge_mode,
+#         in_channels=decoder_channels[2][0],
+#         out_channels=decoder_channels[2][1],
+#         **kwargs,
+#     )
+#     self.up = nn.Upsample(scale_factor=2, mode="nearest")
+#     self.final_up = nn.Conv2d(32, in_channels, kernel_size=3, stride=1, padding=1)
+    
+#   def set_time(self, t):
+#     self.decode_1.set_time(t)
+#     self.decode_2.set_time(t)
+#     self.decode_3.set_time(t)
+  
+#   def set_serial_time_layer(self, layer_i):
+#     layer_i = self.decode_1.set_serial_time_layer(layer_i)
+#     layer_i = self.decode_2.set_serial_time_layer(layer_i)
+#     layer_i = self.decode_3.set_serial_time_layer(layer_i)
+#     return layer_i
+    
+#   def forward(self, x, t=None):
+#     # Encoder
+#     down1 = self.encode_1(x)
+#     down2 = self.encode_2(down1)
+#     down3 = self.encode_3(down2)
+#     down4 = self.encode_4(down3)
+    
+#     # Decoder
+#     up1 = self.decode_1(down4, down3, t=t)
+#     up2 = self.decode_2(up1, down2, t=t)
+#     up3 = self.decode_3(up2, down1, t=t)
+    
+#     up4 = self.up(up3)
+#     out = self.final_up(up4)
+
+#     print(f"\nx: {x.shape}")
+#     print(f"down1: {down1.shape}")
+#     print(f"down2: {down2.shape}")
+#     print(f"down3: {down3.shape}")
+#     print(f"down4: {down4.shape}")
+#     print(f"up1: {up1.shape}")
+#     print(f"up2: {up2.shape}")
+#     print(f"up3: {up3.shape}")
+#     print(f"out: {out.shape}")
+#     return out
+
+
 class HourGlass(nn.Module):
-  def __init__(self, stack_i, in_channels, n_joints=16, merge_mode="addition", **kwargs):
+  def __init__(self, in_channels, n_joints=16, merge_mode="addition", **kwargs):
     super(HourGlass, self).__init__()
-    self._stack_i = stack_i
     self._merge_mode = merge_mode
     
-    # Pooling and upsampling ops
-    self.pool = nn.MaxPool2d((2,2))
-    self.up = nn.Upsample(scale_factor=2, mode="nearest")
-    
-    # Encoder
     self.encode_1 = nn.Sequential(
-        MultiScaleResblock(
+        VanillaResblock(
             in_channels=in_channels, 
             out_channels=in_channels, 
             **kwargs
@@ -223,36 +334,30 @@ class HourGlass(nn.Module):
     )
     
     self.encode_2 = nn.Sequential(
-        MultiScaleResblock(
-            in_channels=in_channels, 
-            out_channels=in_channels, 
-            **kwargs
-        ),
+        MultiScaleResblock(in_channels=in_channels, **kwargs),
         nn.MaxPool2d((2,2)),
         nn.Conv2d(in_channels, in_channels, kernel_size=3, stride=1, padding=1),
     )
     
     self.encode_3 = nn.Sequential(
-        MultiScaleResblock(
-            in_channels=in_channels, 
-            out_channels=in_channels, 
-            **kwargs
-        ),
+        MultiScaleResblock(in_channels=in_channels, **kwargs),
         nn.MaxPool2d((2,2)),
         nn.Conv2d(in_channels, in_channels, kernel_size=3, stride=1, padding=1),
     )
     
     self.encode_4 = nn.Sequential(
-        MultiScaleResblock(
-            in_channels=in_channels, 
-            out_channels=in_channels, 
-            **kwargs
-        ),
+        MultiScaleResblock(in_channels=in_channels, **kwargs),
         nn.MaxPool2d((2,2)),
         nn.Conv2d(in_channels, in_channels, kernel_size=3, stride=1, padding=1),
     )
     
-    # Decoder
+    self.pool = nn.MaxPool2d((2,2))
+    
+    if self._merge_mode == "concat":
+      decoder_channels = [(512, 128), (256, 64), (128, 32)]
+    elif self._merge_mode == "addition":
+      decoder_channels = [(256, 128), (128, 64), (64, 32)]
+      
     self.decode_1 = MergeDecoder(
         mode=self._merge_mode,
         in_channels=in_channels * 2,
@@ -271,7 +376,7 @@ class HourGlass(nn.Module):
         out_channels=in_channels,
         **kwargs,
     )
-    
+    self.up = nn.Upsample(scale_factor=2, mode="nearest")
     self.final_up = nn.Conv2d(
         in_channels, 
         in_channels, 
@@ -292,7 +397,6 @@ class HourGlass(nn.Module):
     return layer_i
     
   def forward(self, x, t=None):
-#     print(f"HG Stack: {self._stack_i}")
     # Encoder
     down1 = self.encode_1(x)
     down2 = self.encode_2(down1)
@@ -307,15 +411,15 @@ class HourGlass(nn.Module):
     up4 = self.up(up3)
     out = self.final_up(up4)
 
-#     print(f"\nx: {x.shape}")
-#     print(f"down1: {down1.shape}")
-#     print(f"down2: {down2.shape}")
-#     print(f"down3: {down3.shape}")
-#     print(f"down4: {down4.shape}")
-#     print(f"up1: {up1.shape}")
-#     print(f"up2: {up2.shape}")
-#     print(f"up3: {up3.shape}")
-#     print(f"out: {out.shape}")
+    print(f"\nx: {x.shape}")
+    print(f"down1: {down1.shape}")
+    print(f"down2: {down2.shape}")
+    print(f"down3: {down3.shape}")
+    print(f"down4: {down4.shape}")
+    print(f"up1: {up1.shape}")
+    print(f"up2: {up2.shape}")
+    print(f"up3: {up3.shape}")
+    print(f"out: {out.shape}")
 
     return out
   
@@ -336,16 +440,13 @@ class PoseNet(nn.Module):
     self.head_layer = HeadLayer(in_channels=inp_dim, out_channels=64)
     
     self.hgs = nn.ModuleList([
-        HourGlass(stack_i=i, in_channels=inp_dim, merge_mode=merge_mode, **kwargs)
+        HourGlass(in_channels=inp_dim, merge_mode=merge_mode, **kwargs)
       for i in range(n_stacks)
     ])
     
     self.feature_maps = nn.ModuleList([
         nn.Sequential(
-          MultiScaleResblock(
-              in_channels=inp_dim, 
-              out_channels=inp_dim,
-          ),
+          VanillaResblock(inp_dim, inp_dim),
           nn.Conv2d(inp_dim, inp_dim, kernel_size=1, stride=1),
           nn.BatchNorm2d(inp_dim),
           self.relu,
@@ -383,6 +484,9 @@ class PoseNet(nn.Module):
   def _set_serial_time_layer(self, layer_i):
     for hg in self.hgs:
       layer_i = hg.set_serial_time_layer(layer_i)
+    
+    # Decrement by 1
+    layer_i -= 1
     return layer_i
     
   def forward(self, x, t=None, is_train=True):
@@ -417,7 +521,6 @@ def get_pose_net(cfg, is_train, **kwargs):
       n_joints=cfg.MODEL.NUM_JOINTS,
       merge_mode=cfg.MODEL.MERGE_MODE,
       cascaded=cfg.MODEL.CASCADED,
-      cascaded_scheme=cfg.MODEL.EXTRA.CASCADED_SCHEME,
       tdl_mode=cfg.MODEL.EXTRA.TDL_MODE,
       tdl_alpha=cfg.MODEL.EXTRA.TDL_ALPHA,
       identity_gating_mode="per_channel",
