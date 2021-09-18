@@ -385,6 +385,7 @@ class PoseNet(nn.Module):
   def _set_serial_time_layer(self, layer_i):
     for hg in self.hgs:
       layer_i = hg.set_serial_time_layer(layer_i)
+    layer_i += 1
     return layer_i
     
   def forward(self, x, t=None, is_train=True):
