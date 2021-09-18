@@ -19,27 +19,23 @@ DATASET:
 MODEL:
   NAME: pose_stacked_hg
   MERGE_MODE: "concat"  # concat, addition
-  CASCADED: True
+  CASCADED: False
   PRETRAINED: '' #'models/pytorch/imagenet/resnet50-19c8e357.pth'
   IMAGE_SIZE:
   - 256
   - 256
+  NUM_CHANNELS: 144  # 144, 256
   NUM_JOINTS: 16
   EXTRA:
-    CASCADED_SCHEME: serial  # parallel, serial
     TARGET_TYPE: gaussian
     SIGMA: 2
     HEATMAP_SIZE:
     - 64
     - 64
-    N_HG_STACKS: 2
-    NUM_LAYERS: 50
-    TDL_MODE: "OSD"  # OSD, EWS
-    TDL_ALPHA: 0.0
-    NOISE_VAR: 0.0
+    N_HG_STACKS: 8
 LOSS:
   USE_TARGET_WEIGHT: true
-  TD_LAMBDA: 1.0
+  TD_LAMBDA: 0.0
   NORMALIZE: true
 TRAIN:
   BATCH_SIZE: 8

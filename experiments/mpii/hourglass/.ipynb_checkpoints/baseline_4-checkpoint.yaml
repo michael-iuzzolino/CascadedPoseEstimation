@@ -27,23 +27,18 @@ MODEL:
   NUM_CHANNELS: 144  # 144, 256
   NUM_JOINTS: 16
   EXTRA:
-    CASCADED_SCHEME: parallel  # parallel, serial
     TARGET_TYPE: gaussian
     SIGMA: 2
     HEATMAP_SIZE:
     - 64
     - 64
     N_HG_STACKS: 4
-    NUM_LAYERS: 50
-    TDL_MODE: "OSD"  # OSD, EWS
-    TDL_ALPHA: 0.0
-    NOISE_VAR: 0.0
 LOSS:
   USE_TARGET_WEIGHT: true
   TD_LAMBDA: 1.0
   NORMALIZE: true
 TRAIN:
-  BATCH_SIZE: 24 # 4
+  BATCH_SIZE: 8
   SHUFFLE: true
   BEGIN_EPOCH: 0
   END_EPOCH: 140

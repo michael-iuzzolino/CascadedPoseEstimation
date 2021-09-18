@@ -147,11 +147,6 @@ class MergeDecoder(nn.Module):
   def __init__(self, mode, in_channels, out_channels, **kwargs):
     super(MergeDecoder, self).__init__()
     self._mode = mode
-    self._cascaded = kwargs.get("cascaded")
-    self._cascaded_scheme = kwargs.get("cascaded_scheme", "parallel")
-#     print("self._cascaded_scheme: ", self._cascaded_scheme)
-    
-    self._time_bn = kwargs.get("time_bn", kwargs["cascaded"])
     
     self.up = nn.Upsample(scale_factor=2, mode="nearest")
     self.decode_conv = nn.Conv2d(
@@ -163,36 +158,9 @@ class MergeDecoder(nn.Module):
     )
     self.bn = nn.BatchNorm2d(out_channels)
     self.relu = nn.ReLU()
-
-    # TDL
-    if self._cascaded:
-      tdl_mode = kwargs.get("tdl_mode", "OSD")
-      self.tdline = tdl.setup_tdl_kernel(tdl_mode, kwargs)
-  
-  def set_serial_time_layer(self, layer_i):
-    self.layer_i = layer_i
-    return layer_i + 1
     
-  def set_time(self, t):
-    self.t = t
-    if t == 0:
-      self.tdline.reset()
-    
-    if self._cascaded_scheme == "serial":
-      self._res_active = self.t >= self.layer_i
-    else:
-      self._res_active = True
-    
-  def forward(self, x, down_feature, t=None):
-#     print("MERGE Layer: ", self.layer_i)
+  def forward(self, x, down_feature):
     residual = self.up(x)
-    
-    # TDL if cascaded
-    if self._cascaded:
-      residual = self.tdline(residual)
-    
-      if not self._res_active:
-        residual = residual * 0.0
         
     if self._mode == "addition":
       out = residual + down_feature
@@ -282,19 +250,7 @@ class HourGlass(nn.Module):
         padding=1
     )
     
-  def set_time(self, t):
-    self.decode_1.set_time(t)
-    self.decode_2.set_time(t)
-    self.decode_3.set_time(t)
-  
-  def set_serial_time_layer(self, layer_i):
-    layer_i = self.decode_1.set_serial_time_layer(layer_i)
-    layer_i = self.decode_2.set_serial_time_layer(layer_i)
-    layer_i = self.decode_3.set_serial_time_layer(layer_i)
-    return layer_i
-    
-  def forward(self, x, t=None):
-#     print(f"HG Stack: {self._stack_i}")
+  def forward(self, x):
     # Encoder
     down1 = self.encode_1(x)
     down2 = self.encode_2(down1)
@@ -302,23 +258,12 @@ class HourGlass(nn.Module):
     down4 = self.encode_4(down3)
     
     # Decoder
-    up1 = self.decode_1(down4, down3, t=t)
-    up2 = self.decode_2(up1, down2, t=t)
-    up3 = self.decode_3(up2, down1, t=t)
+    up1 = self.decode_1(down4, down3)
+    up2 = self.decode_2(up1, down2)
+    up3 = self.decode_3(up2, down1)
     
     up4 = self.up(up3)
     out = self.final_up(up4)
-
-#     print(f"\nx: {x.shape}")
-#     print(f"down1: {down1.shape}")
-#     print(f"down2: {down2.shape}")
-#     print(f"down3: {down3.shape}")
-#     print(f"down4: {down4.shape}")
-#     print(f"up1: {up1.shape}")
-#     print(f"up2: {up2.shape}")
-#     print(f"up3: {up3.shape}")
-#     print(f"out: {out.shape}")
-
     return out
   
   
@@ -331,7 +276,6 @@ class PoseNet(nn.Module):
                **kwargs):
     super(PoseNet, self).__init__()
     self._n_stacks = n_stacks
-    self._cascaded = kwargs.get("cascaded")
     self.relu = nn.ReLU()
     
     # Head layer
@@ -368,31 +312,7 @@ class PoseNet(nn.Module):
       for i in range(n_stacks)
     ])
     
-    self._timesteps = self._set_serial_time_layer(layer_i=0)
-
-  @property
-  def timesteps(self):
-    if self._cascaded:
-      n_timesteps = self._timesteps
-    else:
-      n_timesteps = 1
-    return n_timesteps
-
-  def _set_time(self, t):
-    for hg in self.hgs:
-      hg.set_time(t)
-      
-  def _set_serial_time_layer(self, layer_i):
-    for hg in self.hgs:
-      layer_i = hg.set_serial_time_layer(layer_i)
-    layer_i += 1
-    return layer_i
-    
-  def forward(self, x, t=None, is_train=True):
-    # Set time on all blocks
-    if self._cascaded:
-      self._set_time(t)
-      
+  def forward(self, x):
     x = self.head_layer(x)
     logits = []
     for stack_i in range(self._n_stacks):
@@ -405,10 +325,8 @@ class PoseNet(nn.Module):
       residual = features_i + self.remaps[stack_i](logit_i)
       
       x = identity + residual
-                
-    logits = torch.stack(logits, 1)
-    if is_train:
-        logits = logits[:,-1]
+    
+    logits = torch.stack(logits)
     return logits
   
 
@@ -419,14 +337,7 @@ def get_pose_net(cfg, is_train, **kwargs):
       inp_dim=cfg.MODEL.NUM_CHANNELS,
       n_joints=cfg.MODEL.NUM_JOINTS,
       merge_mode=cfg.MODEL.MERGE_MODE,
-      cascaded=cfg.MODEL.CASCADED,
-      cascaded_scheme=cfg.MODEL.EXTRA.CASCADED_SCHEME,
-      tdl_mode=cfg.MODEL.EXTRA.TDL_MODE,
-      tdl_alpha=cfg.MODEL.EXTRA.TDL_ALPHA,
       identity_gating_mode="per_channel",
   )
-
-#     if is_train and cfg.MODEL.INIT_WEIGHTS:
-#         model.init_weights(cfg.MODEL.PRETRAINED)
 
   return model
