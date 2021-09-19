@@ -84,6 +84,7 @@ def main():
       args.cfg, 
       'train'
   )
+
   logger.info(pprint.pformat(args))
   logger.info(pprint.pformat(config))
 

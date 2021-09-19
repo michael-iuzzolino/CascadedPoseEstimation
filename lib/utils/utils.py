@@ -33,7 +33,8 @@ def create_logger(cfg, cfg_name, phase='train'):
     cfg_name = os.path.basename(cfg_name).split('.')[0]
 
     # final_output_dir = os.path.join(root_output_dir, dataset, model, cfg_name)
-    final_output_dir = root_output_dir / dataset / model
+    model_str = model + f"__TD_{cfg.LOSS.TD_LAMBDA}"
+    final_output_dir = root_output_dir / dataset / model_str
 #     print("cfg.OUTPUT_DIR: ", cfg.OUTPUT_DIR)
 #     print("model: ", model)
 #     print("cfg_name: ", cfg_name)
