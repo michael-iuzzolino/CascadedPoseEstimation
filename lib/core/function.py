@@ -100,20 +100,6 @@ def train(config, train_loader, model, criterion, optimizer, epoch,
       save_debug_images(config, input, meta, target, pred*4, output,
                         prefix)
 
-      
-def revert_flip(output_flipped, flip_pairs):
-    output_flipped = flip_back(output_flipped.cpu().numpy(),flip_pairs)
-    output_flipped = torch.from_numpy(output_flipped.copy()).cuda()
-
-    # feature is not aligned, shift flipped heatmap for higher accuracy
-    if config.TEST.SHIFT_HEATMAP:
-      output_flipped[:, :, :, 1:] = \
-        output_flipped.clone()[:, :, :, 0:-1]
-
-    output = (output + output_flipped) * 0.5
-    return output
-  
-
 def validate(config, val_loader, val_dataset, model, criterion, output_dir,
              tb_log_dir, writer_dict=None):
   batch_time = AverageMeter()
@@ -227,22 +213,11 @@ def validate(config, val_loader, val_dataset, model, criterion, output_dir,
   return perf_indicator
 
 
-def input_flip_fxn(input):
-  # this part is ugly, because pytorch has not supported negative index
-  # input_flipped = model(input[:, :, :, ::-1])
-  input_flipped = np.flip(input.cpu().numpy(), 3).copy()
-  input_flipped = torch.from_numpy(input_flipped).cuda()
-  return input_flipped
-
-
 def test(config, val_loader, val_dataset, model, threshold=0.5):
   # switch to evaluate mode
   model.eval()
   
-  if config.MODEL.CASCADED:
-    acc_metric = [AverageMeter() for _ in range(config.MODEL.N_TIMESTEPS)]
-  else:
-    acc_metric = AverageMeter()
+  accs = [AverageMeter() for _ in range(config.MODEL.EXTRA.N_HG_STACKS)]
   
   with torch.no_grad():
     for i, (input, target, _, _) in enumerate(val_loader):
@@ -251,65 +226,25 @@ def test(config, val_loader, val_dataset, model, threshold=0.5):
 
       # Set target and target_weight device
       target = target.cuda(non_blocking=True)
+   
+      # Compute outputs
+      with torch.no_grad():
+        outputs = model(input)
     
-      input_fxn = lambda x: x
-      output_fxn = lambda x: x
-
-      inputs = input_fxn(input)
-
-      output = model(inputs)
-      output = output_fxn(output)
-
       # Measure accuracy
-      _, avg_acc, cnt, pred = accuracy(output.cpu().numpy(),
-                                       target.cpu().numpy(),
-                                       threshold=threshold)
-      acc_metric.update(avg_acc, cnt)
+      for acc, output in zip(accs, outputs):
+        _, avg_acc, cnt, pred = accuracy(output.cpu().numpy(),
+                                         target.cpu().numpy(),
+                                         threshold=threshold)
+        acc.update(avg_acc, cnt)
+  print("\n")
+  for i, acc in enumerate(accs):
+    print(f"Stack={i}: {acc.avg * 100:0.3f}%")
     
-  result = acc_metric.avg * 100
-  print(f"Average: {result:0.2f}%")
+  result = [acc.avg * 100 for acc in accs]
   
   return result
 
-
-def generate_outputs(config, val_loader, val_dataset, model):
-  # switch to evaluate mode
-  model.eval()
-  all_outputs = []
-  all_targets = []
-  with torch.no_grad():
-    end = time.time()
-    for i, (input, target, _, _) in enumerate(val_loader):
-      sys.stdout.write(f"\rBatch {i+1:,}/{len(val_loader):,}...")
-      sys.stdout.flush()
-      
-      # Set target
-      target = target.cuda(non_blocking=True)
-      
-      if config.TEST.FLIP_TEST:
-        input_fxn = lambda x: input_flip_fxn(x)
-        output_fxn = lambda x: revert_flip(x, val_dataset.flip_pairs)
-      else:
-        input_fxn = lambda x: x
-        output_fxn = lambda x: x
-
-      inputs = input_fxn(input)
-
-      if config.MODEL.CASCADED:
-        outputs = []
-        for t in range(config.MODEL.N_TIMESTEPS):
-          output = model(inputs, t)
-          output = output_fxn(output)
-          outputs.append(output)
-      else:
-        output = model(inputs)
-        output = output_fxn(output)
-      
-      all_outputs.append(output)
-      all_targets.append(target)
-
-  return all_outputs, all_targets
-  
 
 # markdown format output
 def _print_name_value(name_value, full_arch_name):

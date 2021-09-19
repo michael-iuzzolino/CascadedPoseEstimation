@@ -31,9 +31,6 @@ from core.function import validate, test
 from utils.utils import create_logger
 
 import dataset
-import models.pose_resnet
-import models.unet
-import models.cascaded_pose_resnet
 import models.pose_stacked_hg
 from collections import OrderedDict
 
@@ -173,19 +170,8 @@ def main():
     torch.backends.cudnn.enabled = config.CUDNN.ENABLED
     
     # Setup model
-    if config.MODEL.NAME == "pose_resnet":
-      if config.MODEL.CASCADED:
-        model = models.cascaded_pose_resnet.get_pose_net(config, is_train=False)
-      else:
-        model = models.pose_resnet.get_pose_net(config, is_train=False)
-    elif config.MODEL.NAME == "unet":
-        model = models.unet.get_pose_net(config, is_train=False)
-    elif config.MODEL.NAME == "pose_stacked_hg":
-        model = models.pose_stacked_hg.get_pose_net(config, is_train=False)
+    model = models.pose_stacked_hg.get_pose_net(config, is_train=False)
       
-    if config.MODEL.CASCADED:
-        config.MODEL.N_TIMESTEPS = model.timesteps
-    
     # Load state dict
     state_dict = get_state_dict(output_dir, 
                                 config, 
@@ -225,7 +211,13 @@ def main():
     )
 
     # evaluate on validation set
-    result = test(config, valid_loader, valid_dataset, model, threshold=args.threshold)
+    result = test(
+        config, 
+        valid_loader, 
+        valid_dataset, 
+        model, 
+        threshold=args.threshold
+    )
     
     print(f"Saving to {save_path}")
     np.save(save_path, result)
