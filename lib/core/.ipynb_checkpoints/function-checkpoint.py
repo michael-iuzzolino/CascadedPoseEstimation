@@ -45,20 +45,11 @@ def train(config, train_loader, model, criterion, optimizer, epoch,
     target = target.cuda(non_blocking=True)
     target_weight = target_weight.cuda(non_blocking=True)
 
-    if config.MODEL.CASCADED:
-      outputs = []
-      for t in range(config.MODEL.N_TIMESTEPS):
-        output = model(input, t)
-        outputs.append(output)
+    # compute output
+    outputs = model(input)
 
-      loss = criterion(outputs, target, target_weight)
-
-    else:
-      # compute output
-      outputs = model(input)
-
-      # loss
-      loss = criterion(outputs, target, target_weight)
+    # loss
+    loss = criterion(outputs, target, target_weight)
 
     # compute gradient and do update step
     optimizer.zero_grad()

@@ -154,7 +154,6 @@ def main():
     
     # Setup output dir
     output_dir_tmp = os.path.sep.join(output_dir.split(os.path.sep)[1:])
-#     output_dir_tmp += f"__TD_{config.LOSS.TD_LAMBDA}"
     final_result_root = os.path.join(args.result_root, output_dir_tmp)
     if not os.path.exists(final_result_root):
       os.makedirs(final_result_root)

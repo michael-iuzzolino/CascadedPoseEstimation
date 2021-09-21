@@ -11,43 +11,15 @@ from __future__ import print_function
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-
-
-# class JointsMSELoss(nn.Module):
-#   def __init__(self, use_target_weight):
-#     super(JointsMSELoss, self).__init__()
-#     self.criterion = nn.MSELoss(size_average=True)
-#     self.use_target_weight = use_target_weight
-
-#   def forward(self, outputs, target, target_weight):
-#     loss = 0
-#     for output in outputs:
-#       batch_size = output.size(0)
-#       num_joints = output.size(1)
-#       heatmaps_pred = output.reshape((batch_size, num_joints, -1)).split(1, dim=1)
-#       heatmaps_gt = target.reshape((batch_size, num_joints, -1)).split(1, dim=1)
-#       loss_i = 0
-#       for idx in range(num_joints):
-#         heatmap_pred = heatmaps_pred[idx].squeeze()
-#         heatmap_gt = heatmaps_gt[idx].squeeze()
-#         if self.use_target_weight:
-#           loss_i += 0.5 * self.criterion(
-#               heatmap_pred.mul(target_weight[:, idx]),
-#               heatmap_gt.mul(target_weight[:, idx])
-#           )
-#         else:
-#           loss_i += 0.5 * self.criterion(heatmap_pred, heatmap_gt)
-#       loss += loss_i / num_joints
-#     return loss
   
   
 class JointsMSELoss(nn.Module):
-  def __init__(self, use_target_weight):
+  def __init__(self, use_target_weight=False):
     super(JointsMSELoss, self).__init__()
     self.criterion = nn.MSELoss(size_average=True)
     self.use_target_weight = use_target_weight
 
-  def forward(self, output, target, target_weight):
+  def forward(self, output, target, target_weight=None):
     batch_size = output.size(0)
     num_joints = output.size(1)
     heatmaps_pred = output.reshape((batch_size, num_joints, -1)).split(1, dim=1)
@@ -66,8 +38,8 @@ class JointsMSELoss(nn.Module):
         loss += 0.5 * self.criterion(heatmap_pred, heatmap_gt)
 
     return loss / num_joints
-
-
+    
+  
 class TDLambda_JointsMSELoss(nn.Module):
   def __init__(self, use_target_weight, lambda_val=1.0, normalize_loss=False):
     super(TDLambda_JointsMSELoss, self).__init__()
@@ -78,7 +50,7 @@ class TDLambda_JointsMSELoss(nn.Module):
     
     self.criterion = JointsMSELoss(use_target_weight)
 
-  def forward(self, predictions, target, target_weight):
+  def forward(self, predictions, target, target_weight=None):
     loss = 0
     n_timesteps = len(predictions)
     timestep_losses = torch.zeros(n_timesteps)
@@ -112,4 +84,32 @@ class TDLambda_JointsMSELoss(nn.Module):
 #     if self.normalize_loss:
 #       loss = loss / float(n_timesteps)
       
+    return loss
+
+
+class JointsMSELoss_Distillation(nn.Module):
+  def __init__(
+      self, 
+      use_target_weight, 
+      lambda_val=1.0, 
+      normalize_loss=False, 
+      alpha=0.5
+    ):
+    super(JointsMSELoss_Distillation, self).__init__()
+    self.alpha = alpha
+    self._mse_loss = TDLambda_JointsMSELoss(
+        use_target_weight=use_target_weight,
+        lambda_val=lambda_val,
+        normalize_loss=normalize_loss,
+    )
+    self._teacher_criterion = TDLambda_JointsMSELoss(
+        use_target_weight=False,
+        lambda_val=1.0,
+        normalize_loss=False,
+    )
+
+  def forward(self, outputs, teacher_target, target, target_weight):
+    teacher_loss = self._teacher_criterion(outputs, teacher_target)
+    mse_loss = self._mse_loss(outputs, target, target_weight)
+    loss = self.alpha * teacher_loss + (1 - self.alpha) * mse_loss
     return loss

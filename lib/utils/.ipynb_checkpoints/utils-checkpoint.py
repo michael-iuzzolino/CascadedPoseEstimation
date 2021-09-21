@@ -19,7 +19,7 @@ import torch.optim as optim
 from core.config import get_model_name
 
 
-def create_logger(cfg, cfg_name, phase='train'):
+def create_logger(cfg, cfg_name, phase='train', distillation=False):
     root_output_dir = Path(cfg.OUTPUT_DIR)
     # set up logger
     if not root_output_dir.exists():
@@ -34,12 +34,9 @@ def create_logger(cfg, cfg_name, phase='train'):
 
     # final_output_dir = os.path.join(root_output_dir, dataset, model, cfg_name)
     model_str = model + f"__TD_{cfg.LOSS.TD_LAMBDA}"
+    if distillation:
+      model_str = model_str + "__distillation"
     final_output_dir = root_output_dir / dataset / model_str
-#     print("cfg.OUTPUT_DIR: ", cfg.OUTPUT_DIR)
-#     print("model: ", model)
-#     print("cfg_name: ", cfg_name)
-#     print("final_output_dir: ", final_output_dir)
-#     exit()
 
     print('=> creating {}'.format(final_output_dir))
     final_output_dir.mkdir(parents=True, exist_ok=True)

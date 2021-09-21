@@ -26,8 +26,18 @@ from utils.vis import save_debug_images
 logger = logging.getLogger(__name__)
 
 
-def train(config, train_loader, model, criterion, optimizer, epoch,
-          output_dir, tb_log_dir, writer_dict):
+def train(
+    config, 
+    train_loader, 
+    model, 
+    teacher_model,
+    criterion, 
+    optimizer, 
+    epoch, 
+    output_dir, 
+    tb_log_dir, 
+    writer_dict
+  ):
   batch_time = AverageMeter()
   data_time = AverageMeter()
   losses = AverageMeter()
@@ -44,12 +54,16 @@ def train(config, train_loader, model, criterion, optimizer, epoch,
     # Set target weight
     target = target.cuda(non_blocking=True)
     target_weight = target_weight.cuda(non_blocking=True)
+    
+    # Get teacher output
+    with torch.no_grad():
+      teacher_output = teacher_model(input)[-1]
 
     # compute output
     outputs = model(input)
 
     # loss
-    loss = criterion(outputs, target, target_weight)
+    loss = criterion(outputs, teacher_output, target, target_weight)
 
     # compute gradient and do update step
     optimizer.zero_grad()
@@ -70,9 +84,6 @@ def train(config, train_loader, model, criterion, optimizer, epoch,
     
     if i % config.PRINT_FREQ == 0:
       msg = f"Epoch: [{epoch}][{i}/{len(train_loader)}]\t"
-#       msg += f"Time {batch_time.val:0.3f}s ({batch_time.avg:0.3f}s)\t"
-#       msg += f"Speed {input.size(0)/batch_time.val:0.1f} samples/s\t"
-#       msg += f"Data: {data_time.val:0.3f}s ({data_time.avg:0.3f}s)\t"
       msg += f"Loss {losses.val:0.5f} ({losses.avg:0.5f})\t"
       msg += "Accuracy "
       for i, acc in enumerate(accs):
@@ -90,9 +101,19 @@ def train(config, train_loader, model, criterion, optimizer, epoch,
       prefix = '{}_{}'.format(os.path.join(output_dir, 'train'), i)
       save_debug_images(config, input, meta, target, pred*4, output,
                         prefix)
+      
 
-def validate(config, val_loader, val_dataset, model, criterion, output_dir,
-             tb_log_dir, writer_dict=None):
+def validate(
+    config, 
+    val_loader, 
+    val_dataset, 
+    model, 
+    teacher_model, 
+    criterion, 
+    output_dir, 
+    tb_log_dir, 
+    writer_dict=None
+  ):
   batch_time = AverageMeter()
   losses = AverageMeter()
   accs = [AverageMeter() for _ in range(config.MODEL.EXTRA.N_HG_STACKS)]
@@ -122,11 +143,12 @@ def validate(config, val_loader, val_dataset, model, criterion, output_dir,
     # Compute outputs
     with torch.no_grad():
       outputs = model(input)
-
+      teacher_output = teacher_model(input)[-1]
+    
     # Compute loss
-    loss = criterion(outputs, target, target_weight)
+    loss = criterion(outputs, teacher_output, target, target_weight)
     losses.update(loss.item(), num_images)
-
+    
     # Measure accuracy
     for acc, output in zip(accs, outputs):
       _, avg_acc, cnt, pred = accuracy(output.cpu().numpy(),
@@ -202,39 +224,6 @@ def validate(config, val_loader, val_dataset, model, criterion, output_dir,
     writer_dict['valid_global_steps'] = global_steps + 1
 
   return perf_indicator
-
-
-def test(config, val_loader, val_dataset, model, threshold=0.5):
-  # switch to evaluate mode
-  model.eval()
-  
-  accs = [AverageMeter() for _ in range(config.MODEL.EXTRA.N_HG_STACKS)]
-  
-  with torch.no_grad():
-    for i, (input, target, _, _) in enumerate(val_loader):
-      sys.stdout.write(f"\rBatch {i+1:,}/{len(val_loader):,}...")
-      sys.stdout.flush()
-
-      # Set target and target_weight device
-      target = target.cuda(non_blocking=True)
-   
-      # Compute outputs
-      with torch.no_grad():
-        outputs = model(input)
-    
-      # Measure accuracy
-      for acc, output in zip(accs, outputs):
-        _, avg_acc, cnt, pred = accuracy(output.cpu().numpy(),
-                                         target.cpu().numpy(),
-                                         threshold=threshold)
-        acc.update(avg_acc, cnt)
-  print("\n")
-  for i, acc in enumerate(accs):
-    print(f"Stack={i}: {acc.avg * 100:0.3f}%")
-    
-  result = [acc.avg * 100 for acc in accs]
-  
-  return result
 
 
 # markdown format output
