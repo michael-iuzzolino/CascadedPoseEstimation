@@ -76,13 +76,47 @@ def reset_config(config, args):
   if args.workers:
     config.WORKERS = args.workers
 
+    
+def get_state_dict(output_dir, config, use_best=False):
+  if config.TEST.MODEL_FILE:
+    state_dict = torch.load(config.TEST.MODEL_FILE)
+  else:
+    ckpt_path = os.path.join(output_dir, f"final_state.pth.tar")
+    
+    if os.path.exists(ckpt_path) and not use_best:
+      state_dict = torch.load(ckpt_path)
+    else:
+      ckpt_path = os.path.join(output_dir, f"model_best.pth.tar")
+      state_dict = torch.load(ckpt_path)
+  
+  if "state_dict" in state_dict:
+    state_dict = state_dict["state_dict"]
+        
+  return state_dict
 
-def setup_teacher(args, gpus):
+
+
+def setup_teacher(config, args, gpus):
   original_cfg = args.cfg
   args.cfg = "experiments/mpii/hourglass/hourglass_8__td_1.yaml"
   update_config(args.cfg)
   teacher_model = models.pose_stacked_hg.get_pose_net(config, is_train=False)
   
+  _, output_dir, _ = create_logger(
+      config, 
+      args.cfg, 
+      'train',
+      distillation=False,
+      small=False,
+      make_dir=False,
+  )
+  
+  # Load state dict
+  state_dict = get_state_dict(output_dir, config, use_best=True)
+
+  # Load previous model
+  teacher_model.load_state_dict(state_dict)
+
   # Set cfg back to original
   args.cfg = original_cfg
   update_config(args.cfg)
@@ -101,7 +135,8 @@ def main():
       config, 
       args.cfg, 
       'train',
-      distillation=True
+      distillation=True,
+      small="__small__" in args.cfg,
   )
   logger.info(pprint.pformat(args))
   logger.info(pprint.pformat(config))
@@ -146,7 +181,7 @@ def main():
   model = torch.nn.DataParallel(model, device_ids=gpus).cuda()
   
   # Setup teacher
-  teacher_model = setup_teacher(args, gpus)
+  teacher_model = setup_teacher(config, args, gpus)
 
   print("Setting up criterion, optimizer, and LR scheduling...")
   # define loss function (criterion) and optimizer

@@ -19,10 +19,10 @@ import torch.optim as optim
 from core.config import get_model_name
 
 
-def create_logger(cfg, cfg_name, phase='train', distillation=False):
+def create_logger(cfg, cfg_name, phase='train', distillation=False, small=False, make_dir=True):
     root_output_dir = Path(cfg.OUTPUT_DIR)
     # set up logger
-    if not root_output_dir.exists():
+    if not root_output_dir.exists() and make_dir:
         print('=> creating {}'.format(root_output_dir))
         root_output_dir.mkdir()
 
@@ -34,12 +34,18 @@ def create_logger(cfg, cfg_name, phase='train', distillation=False):
 
     # final_output_dir = os.path.join(root_output_dir, dataset, model, cfg_name)
     model_str = model + f"__TD_{cfg.LOSS.TD_LAMBDA}"
+    if small:
+      model_str = model_str + "__small"
     if distillation:
       model_str = model_str + "__distillation"
+    if "SHARE_HG_WEIGHTS" in cfg.MODEL.EXTRA:
+      if cfg.MODEL.EXTRA.SHARE_HG_WEIGHTS:
+        model_str = model_str + "__shared_weights"
     final_output_dir = root_output_dir / dataset / model_str
-
-    print('=> creating {}'.format(final_output_dir))
-    final_output_dir.mkdir(parents=True, exist_ok=True)
+    
+    if make_dir:
+      print('=> creating {}'.format(final_output_dir))
+      final_output_dir.mkdir(parents=True, exist_ok=True)
 
     time_str = time.strftime('%Y-%m-%d-%H-%M')
     log_file = '{}_{}_{}.log'.format(cfg_name, time_str, phase)
@@ -55,7 +61,8 @@ def create_logger(cfg, cfg_name, phase='train', distillation=False):
     tensorboard_log_dir = Path(cfg.LOG_DIR) / dataset / model / \
         (cfg_name + '_' + time_str)
     print('=> creating {}'.format(tensorboard_log_dir))
-    tensorboard_log_dir.mkdir(parents=True, exist_ok=True)
+    if make_dir:
+      tensorboard_log_dir.mkdir(parents=True, exist_ok=True)
 
     return logger, str(final_output_dir), str(tensorboard_log_dir)
 

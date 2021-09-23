@@ -132,11 +132,6 @@ def get_state_dict(output_dir, config, logger, use_best=False):
   
   if "state_dict" in state_dict:
     state_dict = state_dict["state_dict"]
-#       # Fix
-#       state_dict = OrderedDict()
-#       for k, v in state_dict_src.items():
-#         k = k.replace("module.", "")
-#         state_dict[k] = v
         
   return state_dict
 
@@ -148,7 +143,15 @@ def main():
     
     # Setup logger
     logger, output_dir, tb_log_dir = create_logger(
-        config, args.cfg, 'valid')
+        config, 
+        args.cfg, 
+        'valid',
+        distillation="distillation" in args.cfg,
+        small="__small__" in args.cfg,
+    )
+    
+#     logger, output_dir, tb_log_dir = create_logger(
+#         config, args.cfg, 'valid')
     logger.info(pprint.pformat(args))
     logger.info(pprint.pformat(config))
     

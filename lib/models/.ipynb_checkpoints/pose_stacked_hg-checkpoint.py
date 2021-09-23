@@ -281,10 +281,14 @@ class PoseNet(nn.Module):
     # Head layer
     self.head_layer = HeadLayer(in_channels=inp_dim, out_channels=64)
     
-    self.hgs = nn.ModuleList([
-        HourGlass(stack_i=i, in_channels=inp_dim, merge_mode=merge_mode, **kwargs)
-      for i in range(n_stacks)
-    ])
+    if kwargs.get("share_weights", False):
+      hg_model = HourGlass(stack_i=0, in_channels=inp_dim, merge_mode=merge_mode, **kwargs)
+      self.hgs = nn.ModuleList([hg_model for i in range(n_stacks)])
+    else:
+      self.hgs = nn.ModuleList([
+          HourGlass(stack_i=i, in_channels=inp_dim, merge_mode=merge_mode, **kwargs)
+        for i in range(n_stacks)
+      ])
     
     self.feature_maps = nn.ModuleList([
         nn.Sequential(
@@ -332,12 +336,17 @@ class PoseNet(nn.Module):
 
 def get_pose_net(cfg, is_train, **kwargs):
   n_hg_stacks = cfg.MODEL.EXTRA.N_HG_STACKS
+  if "SHARE_HG_WEIGHTS" in cfg.MODEL.EXTRA:
+    share_weights = cfg.MODEL.EXTRA.SHARE_HG_WEIGHTS
+  else:
+    share_weights = False
   model = PoseNet(
       n_stacks=n_hg_stacks,
       inp_dim=cfg.MODEL.NUM_CHANNELS,
       n_joints=cfg.MODEL.NUM_JOINTS,
       merge_mode=cfg.MODEL.MERGE_MODE,
       identity_gating_mode="per_channel",
+      share_weights=share_weights,
   )
 
   return model
