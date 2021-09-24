@@ -19,7 +19,7 @@ import torch.optim as optim
 from core.config import get_model_name
 
 
-def create_logger(cfg, cfg_name, phase='train', distillation=False, small=False, make_dir=True):
+def create_logger(cfg, cfg_name, phase='train', distillation=False, make_dir=True):
     root_output_dir = Path(cfg.OUTPUT_DIR)
     # set up logger
     if not root_output_dir.exists() and make_dir:
@@ -30,6 +30,8 @@ def create_logger(cfg, cfg_name, phase='train', distillation=False, small=False,
         if cfg.DATASET.HYBRID_JOINTS_TYPE else cfg.DATASET.DATASET
     dataset = dataset.replace(':', '_')
     model, _ = get_model_name(cfg)
+    small = "small" in cfg_name
+    
     cfg_name = os.path.basename(cfg_name).split('.')[0]
 
     # final_output_dir = os.path.join(root_output_dir, dataset, model, cfg_name)

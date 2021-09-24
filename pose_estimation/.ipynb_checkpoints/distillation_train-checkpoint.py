@@ -136,7 +136,6 @@ def main():
       args.cfg, 
       'train',
       distillation=True,
-      small="__small__" in args.cfg,
   )
   logger.info(pprint.pformat(args))
   logger.info(pprint.pformat(config))
