@@ -147,7 +147,6 @@ def main():
         args.cfg, 
         'valid',
         distillation="distillation" in args.cfg,
-        small="__small__" in args.cfg,
     )
     
 #     logger, output_dir, tb_log_dir = create_logger(

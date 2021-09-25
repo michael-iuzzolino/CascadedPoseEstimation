@@ -107,7 +107,6 @@ def setup_teacher(config, args, gpus):
       args.cfg, 
       'train',
       distillation=False,
-      small=False,
       make_dir=False,
   )
   

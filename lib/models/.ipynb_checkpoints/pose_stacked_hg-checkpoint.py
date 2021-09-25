@@ -107,30 +107,30 @@ class MultiScaleResblock(nn.Module):
   
   
 class HeadLayer(nn.Module):
-  def __init__(self, in_channels, out_channels, kernel_size=7):
+  def __init__(self, in_channels, hidden_channels=64, kernel_size=7):
     super(HeadLayer, self).__init__()
     self.conv = nn.Conv2d(
         3, 
-        out_channels, 
+        hidden_channels, 
         kernel_size=kernel_size,
         stride=2,
         padding=(kernel_size-1)//2,
     )
     
-    self.bn = nn.BatchNorm2d(out_channels)
+    self.bn = nn.BatchNorm2d(hidden_channels)
     self.relu = nn.ReLU()
     
     self.pool = nn.MaxPool2d((2,2))
     self.res_1 = MultiScaleResblock(
-        in_channels=64, 
-        out_channels=128, 
+        in_channels=hidden_channels, 
+        out_channels=hidden_channels, 
     )
     self.res_2 = MultiScaleResblock(
-        in_channels=128, 
-        out_channels=128, 
+        in_channels=hidden_channels, 
+        out_channels=hidden_channels, 
     )
     self.res_3 = MultiScaleResblock(
-        in_channels=128, 
+        in_channels=hidden_channels, 
         out_channels=in_channels, 
     )
   
@@ -172,7 +172,15 @@ class MergeDecoder(nn.Module):
   
   
 class HourGlass(nn.Module):
-  def __init__(self, stack_i, in_channels, n_joints=16, merge_mode="addition", **kwargs):
+  def __init__(
+      self, 
+      stack_i, 
+      in_channels, 
+      hidden_channels=None, 
+      n_joints=16, 
+      merge_mode="addition", 
+      **kwargs
+    ):
     super(HourGlass, self).__init__()
     self._stack_i = stack_i
     self._merge_mode = merge_mode
@@ -180,6 +188,22 @@ class HourGlass(nn.Module):
     # Pooling and upsampling ops
     self.pool = nn.MaxPool2d((2,2))
     self.up = nn.Upsample(scale_factor=2, mode="nearest")
+    
+    self.use_conversion_conv = False
+    if hidden_channels and in_channels != hidden_channels:
+      self.use_conversion_conv = True
+      self.conversion_in_conv = nn.Conv2d(
+          in_channels=in_channels, 
+          out_channels=hidden_channels, 
+          kernel_size=1, 
+      )
+      self.conversion_out_conv = nn.Conv2d(
+          in_channels=hidden_channels, 
+          out_channels=in_channels, 
+          kernel_size=1, 
+      )
+    
+      in_channels = hidden_channels
     
     # Encoder
     self.encode_1 = nn.Sequential(
@@ -251,6 +275,9 @@ class HourGlass(nn.Module):
     )
     
   def forward(self, x):
+    if self.use_conversion_conv:
+      x = self.conversion_in_conv(x)
+    
     # Encoder
     down1 = self.encode_1(x)
     down2 = self.encode_2(down1)
@@ -264,64 +291,136 @@ class HourGlass(nn.Module):
     
     up4 = self.up(up3)
     out = self.final_up(up4)
+    
+    if self.use_conversion_conv:
+      out = self.conversion_out_conv(out)
+      
     return out
   
   
 class PoseNet(nn.Module):
   def __init__(self, 
                n_stacks=1, 
-               inp_dim=256, 
+               double_stack=False,
+               n_double_features=256,
+               n_features=128, 
                n_joints=16, 
                merge_mode="concat", 
                **kwargs):
     super(PoseNet, self).__init__()
     self._n_stacks = n_stacks
+    self._n_features = n_features
+    self._n_double_features = n_double_features
+    self._double_stack = double_stack
+    self._merge_mode = merge_mode
+    self._kwargs = kwargs
     self.relu = nn.ReLU()
     
     # Head layer
-    self.head_layer = HeadLayer(in_channels=inp_dim, out_channels=64)
+    self.head_layer = HeadLayer(in_channels=n_features, hidden_channels=64)
     
-    if kwargs.get("share_weights", False):
-      hg_model = HourGlass(stack_i=0, in_channels=inp_dim, merge_mode=merge_mode, **kwargs)
-      self.hgs = nn.ModuleList([hg_model for i in range(n_stacks)])
-    else:
-      self.hgs = nn.ModuleList([
-          HourGlass(stack_i=i, in_channels=inp_dim, merge_mode=merge_mode, **kwargs)
-        for i in range(n_stacks)
-      ])
+    # Setup hourglasses
+    self._setup_hgs()
+    if self._double_stack:
+      self._n_stacks *= 2
     
+    # Feature maps
     self.feature_maps = nn.ModuleList([
         nn.Sequential(
           MultiScaleResblock(
-              in_channels=inp_dim, 
-              out_channels=inp_dim,
+              in_channels=n_features, 
+              out_channels=n_features,
           ),
-          nn.Conv2d(inp_dim, inp_dim, kernel_size=1, stride=1),
-          nn.BatchNorm2d(inp_dim),
+          nn.Conv2d(n_features, n_features, kernel_size=1, stride=1),
+          nn.BatchNorm2d(n_features),
           self.relu,
         )
-      for i in range(n_stacks)
+      for i in range(self._n_stacks)
     ])
     
+    # Logit maps
     self.logit_maps = nn.ModuleList([
-        nn.Sequential(nn.Conv2d(inp_dim, n_joints, kernel_size=1, stride=1))
-      for i in range(n_stacks)
+        nn.Sequential(nn.Conv2d(n_features, n_joints, kernel_size=1, stride=1))
+      for i in range(self._n_stacks)
     ])
     
+    # Remaps
     self.remaps = nn.ModuleList([
         nn.Sequential(
-          nn.Conv2d(n_joints, inp_dim, kernel_size=1, stride=1),
+          nn.Conv2d(n_joints, n_features, kernel_size=1, stride=1),
           self.relu,
         )
-      for i in range(n_stacks)
+      for i in range(self._n_stacks)
     ])
     
+  def _setup_hgs(self):
+    if self._kwargs.get("share_weights", False):
+      if self._double_stack:
+        small_hg_model = HourGlass(
+            stack_i=0, 
+            in_channels=self._n_features, 
+            merge_mode=self._merge_mode, 
+            **self._kwargs
+        )
+        first_stack = [small_hg_model for i in range(self._n_stacks)]
+        large_hg_model = HourGlass(
+            stack_i=1, 
+            in_channels=self._n_double_features, 
+            merge_mode=self._merge_mode, 
+            **self._kwargs
+        )
+        second_stack = [large_hg_model for i in range(self._n_stacks)]
+        self.hgs = nn.ModuleList(first_stack + second_stack)
+      else:
+        hg_model = HourGlass(
+            stack_i=0, 
+            in_channels=self._n_features, 
+            merge_mode=self._merge_mode, 
+            **self._kwargs
+        )
+        self.hgs = nn.ModuleList([hg_model for i in range(self._n_stacks)])
+    else:
+      if self._double_stack:
+        first_stack = [
+            HourGlass(
+                stack_i=i, 
+                in_channels=self._n_features,
+                merge_mode=self._merge_mode, 
+                **self._kwargs
+            )
+          for i in range(self._n_stacks)
+        ]
+        second_stack = [
+            HourGlass(
+                stack_i=i+(self._n_stacks), 
+                in_channels=self._n_features, 
+                hidden_channels=self._n_double_features,
+                merge_mode=self._merge_mode,
+                **self._kwargs
+            )
+          for i in range(self._n_stacks)
+        ]
+        module_list = [
+            *first_stack, 
+            *second_stack, 
+        ]
+        self.hgs = nn.ModuleList(module_list)
+      else:
+        self.hgs = nn.ModuleList([
+            HourGlass(
+                stack_i=i, 
+                in_channels=self._n_features, 
+                merge_mode=self._merge_mode, 
+                **self._kwargs
+            )
+          for i in range(self._n_stacks)
+        ])
+  
   def forward(self, x):
     x = self.head_layer(x)
     logits = []
     for stack_i in range(self._n_stacks):
       identity = x.clone()
-      
       hg_out = self.hgs[stack_i](x)
       features_i = self.feature_maps[stack_i](hg_out)
       logit_i = self.logit_maps[stack_i](features_i)
@@ -342,7 +441,9 @@ def get_pose_net(cfg, is_train, **kwargs):
     share_weights = False
   model = PoseNet(
       n_stacks=n_hg_stacks,
-      inp_dim=cfg.MODEL.NUM_CHANNELS,
+      double_stack=cfg.MODEL.EXTRA.DOUBLE_STACK,
+      n_double_features=cfg.MODEL.EXTRA.NUM_DOUBLE_CHANNELS,
+      n_features=cfg.MODEL.NUM_CHANNELS,
       n_joints=cfg.MODEL.NUM_JOINTS,
       merge_mode=cfg.MODEL.MERGE_MODE,
       identity_gating_mode="per_channel",
