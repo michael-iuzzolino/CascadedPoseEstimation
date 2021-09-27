@@ -31,7 +31,10 @@ def train(config, train_loader, model, criterion, optimizer, epoch,
   batch_time = AverageMeter()
   data_time = AverageMeter()
   losses = AverageMeter()
-  accs = [AverageMeter() for _ in range(config.MODEL.EXTRA.N_HG_STACKS)]
+  n_timesteps = config.MODEL.EXTRA.N_HG_STACKS
+  if config.MODEL.EXTRA.DOUBLE_STACK:
+    n_timesteps *= 2
+  accs = [AverageMeter() for _ in range(n_timesteps)]
 
   # switch to train mode
   model.train()
@@ -70,9 +73,6 @@ def train(config, train_loader, model, criterion, optimizer, epoch,
     
     if i % config.PRINT_FREQ == 0:
       msg = f"Epoch: [{epoch}][{i}/{len(train_loader)}]\t"
-#       msg += f"Time {batch_time.val:0.3f}s ({batch_time.avg:0.3f}s)\t"
-#       msg += f"Speed {input.size(0)/batch_time.val:0.1f} samples/s\t"
-#       msg += f"Data: {data_time.val:0.3f}s ({data_time.avg:0.3f}s)\t"
       msg += f"Loss {losses.val:0.5f} ({losses.avg:0.5f})\t"
       msg += "Accuracy "
       for i, acc in enumerate(accs):
@@ -95,7 +95,11 @@ def validate(config, val_loader, val_dataset, model, criterion, output_dir,
              tb_log_dir, writer_dict=None):
   batch_time = AverageMeter()
   losses = AverageMeter()
-  accs = [AverageMeter() for _ in range(config.MODEL.EXTRA.N_HG_STACKS)]
+  
+  n_timesteps = config.MODEL.EXTRA.N_HG_STACKS
+  if config.MODEL.EXTRA.DOUBLE_STACK:
+    n_timesteps *= 2
+  accs = [AverageMeter() for _ in range(n_timesteps)]
 
   # switch to evaluate mode
   model.eval()
@@ -208,7 +212,10 @@ def test(config, val_loader, val_dataset, model, threshold=0.5):
   # switch to evaluate mode
   model.eval()
   
-  accs = [AverageMeter() for _ in range(config.MODEL.EXTRA.N_HG_STACKS)]
+  n_timesteps = config.MODEL.EXTRA.N_HG_STACKS
+  if config.MODEL.EXTRA.DOUBLE_STACK:
+    n_timesteps *= 2
+  accs = [AverageMeter() for _ in range(n_timesteps)]
   
   with torch.no_grad():
     for i, (input, target, _, _) in enumerate(val_loader):
