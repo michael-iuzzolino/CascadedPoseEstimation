@@ -188,7 +188,7 @@ def main():
       use_target_weight=config.LOSS.USE_TARGET_WEIGHT, 
       lambda_val=config.LOSS.TD_LAMBDA, 
       normalize_loss=config.LOSS.NORMALIZE,
-      alpha=args.alpha,
+      alpha=config.LOSS.DISTILLATION_ALPHA,
   ).cuda()
 
   optimizer = get_optimizer(config, model)

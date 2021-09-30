@@ -79,6 +79,7 @@ config.LOSS = edict()
 config.LOSS.USE_TARGET_WEIGHT = True
 config.LOSS.TD_LAMBDA = 1.0
 config.LOSS.NORMALIZE = True
+config.LOSS.DISTILLATION_ALPHA = 0.5
 
 # DATASET related params
 config.DATASET = edict()

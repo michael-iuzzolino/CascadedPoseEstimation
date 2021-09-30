@@ -40,10 +40,13 @@ def create_logger(cfg, cfg_name, phase='train', distillation=False, make_dir=Tru
       model_str = model_str + "__small"
     if distillation:
       model_str = model_str + "__distillation"
+      alpha_val = cfg.LOSS.DISTILLATION_ALPHA 
+      model_str = model_str + f"__alpha_{alpha_val}"
     if cfg.MODEL.EXTRA.SHARE_HG_WEIGHTS:
       model_str = model_str + "__shared_weights"
     if cfg.MODEL.EXTRA.DOUBLE_STACK:
       model_str = model_str + "__double"
+
     final_output_dir = root_output_dir / dataset / model_str
     if make_dir:
       print('=> creating {}'.format(final_output_dir))
