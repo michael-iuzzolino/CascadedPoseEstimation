@@ -1,16 +1,22 @@
 #!/bin/bash
-THRESHOLDS=(0.0 0.1 0.2 0.25 0.3 0.4 0.5 0.75 1.0) 
 
-CFG="/home/michael/CascadedPoseEstimation/experiments/mpii/resnet18/cascaded__td_1_parallel.yaml"
-# CFG="/home/michael/CascadedPoseEstimation/experiments/mpii/resnet18/baseline.yaml"
-RESULTS_ROOT="/hdd/mliuzzolino/CascadedPoseEstimation/q_results/"
-for THRESHOLD in "${THRESHOLDS[@]}"
+CFG_ROOT="experiments/mpii/hourglass"
+cfg_list=(
+#   "${CFG_ROOT}/hourglass_4__td_1__distillation__alpha_0_75.yaml"
+#   "${CFG_ROOT}/hourglass_4__td_0_5__distillation__alpha_0_75.yaml"
+#   "${CFG_ROOT}/hourglass_4__td_1__distillation__alpha_0_25.yaml"
+#   "${CFG_ROOT}/hourglass_4__td_0_9__distillation__alpha_0.yaml"
+  "${CFG_ROOT}/hourglass_4__td_0_9__distillation__alpha_0_25.yaml"
+  "${CFG_ROOT}/hourglass_4__td_0_9__distillation__alpha_0_75.yaml"
+#   "${CFG_ROOT}/hourglass_4__td_0_5__distillation__alpha_0_25.yaml"
+#   "${CFG_ROOT}/hourglass_4__td_0__distillation__alpha_0.yaml"
+#   "${CFG_ROOT}/hourglass_4__td_0__distillation__alpha_1.yaml"
+)
+for cfg in "${cfg_list[@]}"
 do
     cmd=( python pose_estimation/valid.py )   # create array with one element
-    cmd+=( --cfg $CFG )
-    cmd+=( --threshold $THRESHOLD )
-    cmd+=( --result_root $RESULTS_ROOT )
-
+    cmd+=( --cfg $cfg )
+    cmd+=( --force_overwrite )
     # Run command
     "${cmd[@]}"
 done
