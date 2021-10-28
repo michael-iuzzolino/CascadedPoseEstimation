@@ -28,7 +28,7 @@ from core.config import update_config
 from core.config import update_dir
 from core.loss import JointsMSELoss
 from core.function import validate, test
-from utils.utils import create_logger
+from utils.utils import create_logger, create_experiment_directory
 
 import dataset
 import models.pose_stacked_hg
@@ -140,17 +140,21 @@ def main():
     # Setup args and config
     args = parse_args()
     reset_config(config, args)
-    
-    # Setup logger
-    logger, output_dir, tb_log_dir = create_logger(
+
+    output_dir = create_experiment_directory(
         config, 
         args.cfg, 
         'valid',
         distillation="distillation" in args.cfg,
     )
+
+    logger, tb_log_dir = create_logger(
+        config, 
+        args.cfg, 
+        output_dir,
+        'valid'
+    )
     
-#     logger, output_dir, tb_log_dir = create_logger(
-#         config, args.cfg, 'valid')
     logger.info(pprint.pformat(args))
     logger.info(pprint.pformat(config))
     
