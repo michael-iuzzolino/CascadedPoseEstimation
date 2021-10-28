@@ -13,6 +13,10 @@ export CUDA_VISIBLE_DEVICES=1; python pose_estimation/train.py \
 
 Student TD
 export CUDA_VISIBLE_DEVICES=1; python pose_estimation/train.py \
+    --cfg experiments/mpii/hourglass/hourglass_4__td_0.yaml
+export CUDA_VISIBLE_DEVICES=1; python pose_estimation/train.py \
+    --cfg experiments/mpii/hourglass/hourglass_4__td_0_5.yaml
+export CUDA_VISIBLE_DEVICES=1; python pose_estimation/train.py \
     --cfg experiments/mpii/hourglass/hourglass_4__td_1.yaml
 
 Distillation
