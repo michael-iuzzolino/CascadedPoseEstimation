@@ -1,7 +1,6 @@
 # Train
 
-Teacher TD
-
+## Teacher TD
 export CUDA_VISIBLE_DEVICES=0; python pose_estimation/train.py \
     --cfg experiments/mpii/hourglass/hourglass_4__td_0__double.yaml
     
@@ -11,17 +10,46 @@ export CUDA_VISIBLE_DEVICES=0; python pose_estimation/train.py \
 export CUDA_VISIBLE_DEVICES=1; python pose_estimation/train.py \
     --cfg experiments/mpii/hourglass/hourglass_4__td_1__double.yaml
 
-Student TD
-export CUDA_VISIBLE_DEVICES=1; python pose_estimation/train.py \
+## Student TD
+export CUDA_VISIBLE_DEVICES=0; python pose_estimation/train.py \
     --cfg experiments/mpii/hourglass/hourglass_4__td_0.yaml
-export CUDA_VISIBLE_DEVICES=1; python pose_estimation/train.py \
+    
+export CUDA_VISIBLE_DEVICES=0; python pose_estimation/train.py \
     --cfg experiments/mpii/hourglass/hourglass_4__td_0_5.yaml
-export CUDA_VISIBLE_DEVICES=1; python pose_estimation/train.py \
+    
+export CUDA_VISIBLE_DEVICES=0; python pose_estimation/train.py \
     --cfg experiments/mpii/hourglass/hourglass_4__td_1.yaml
 
-Distillation
-export CUDA_VISIBLE_DEVICES=1; python pose_estimation/distillation_train.py \
+## Distillation
+### Student TD(0.0) Teacher TD(0.0)-TD(1.0)
+export CUDA_VISIBLE_DEVICES=0; python pose_estimation/distillation_train.py \
     --cfg experiments/mpii/hourglass/hourglass_4__td_0__distill_td_0.yaml
+    
+export CUDA_VISIBLE_DEVICES=0; python pose_estimation/distillation_train.py \
+    --cfg experiments/mpii/hourglass/hourglass_4__td_0__distill_td_0_5.yaml
+    
+export CUDA_VISIBLE_DEVICES=0; python pose_estimation/distillation_train.py \
+    --cfg experiments/mpii/hourglass/hourglass_4__td_0__distill_td_1.yaml
+    
+### Student TD(0.5) Teacher TD(0.0)-TD(1.0)
+export CUDA_VISIBLE_DEVICES=0; python pose_estimation/distillation_train.py \
+    --cfg experiments/mpii/hourglass/hourglass_4__td_0_5__distill_td_0.yaml
+    
+export CUDA_VISIBLE_DEVICES=0; python pose_estimation/distillation_train.py \
+    --cfg experiments/mpii/hourglass/hourglass_4__td_0_5__distill_td_0_5.yaml
+    
+export CUDA_VISIBLE_DEVICES=0; python pose_estimation/distillation_train.py \
+    --cfg experiments/mpii/hourglass/hourglass_4__td_0_5__distill_td_1.yaml
+    
+### Student TD(1.0) Teacher TD(0.0)-TD(1.0)
+export CUDA_VISIBLE_DEVICES=0; python pose_estimation/distillation_train.py \
+    --cfg experiments/mpii/hourglass/hourglass_4__td_1__distill_td_0.yaml
+    
+export CUDA_VISIBLE_DEVICES=0; python pose_estimation/distillation_train.py \
+    --cfg experiments/mpii/hourglass/hourglass_4__td_1__distill_td_0_5.yaml
+    
+export CUDA_VISIBLE_DEVICES=0; python pose_estimation/distillation_train.py \
+    --cfg experiments/mpii/hourglass/hourglass_4__td_1__distill_td_1.yaml
     
     
     

@@ -96,12 +96,12 @@ def get_state_dict(output_dir, config, use_best=False):
 
 def setup_teacher(config, args, gpus):
     original_cfg = args.cfg
-    args.cfg = "experiments/mpii/hourglass/hourglass_4__td_1__double.yaml"
-  #   args.cfg = "experiments/mpii/hourglass/hourglass_8__td_1.yaml"
+    update_config(original_cfg)
+    args.cfg = original_cfg.TEACHER_CFG  # "experiments/mpii/hourglass/hourglass_4__td_1__double.yaml"
     update_config(args.cfg)
     teacher_model = models.pose_stacked_hg.get_pose_net(config, is_train=False)
     
-    output_dir = create_experiment_directory(
+    teacher_output_dir = create_experiment_directory(
         config, 
         args.cfg, 
         distillation=False,
@@ -109,7 +109,7 @@ def setup_teacher(config, args, gpus):
     )
     
     # Load state dict
-    state_dict = get_state_dict(output_dir, config, use_best=True)
+    state_dict = get_state_dict(teacher_output_dir, config, use_best=True)
 
     # Load previous model
     teacher_model.load_state_dict(state_dict)
