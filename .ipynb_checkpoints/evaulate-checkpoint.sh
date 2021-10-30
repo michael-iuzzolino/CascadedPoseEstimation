@@ -2,8 +2,13 @@
 
 CFG_ROOT="experiments/mpii/hourglass"
 cfg_list=(
-# PUGET
-  "${CFG_ROOT}/hourglass_4__td_0_95__distillation__alpha_0_25.yaml"
+#   "${CFG_ROOT}/hourglass_4__td_0.yaml"
+  "${CFG_ROOT}/hourglass_4__td_0_25.yaml"
+  "${CFG_ROOT}/hourglass_4__td_0_9.yaml"
+#   "${CFG_ROOT}/hourglass_4__td_1.yaml"
+#   "${CFG_ROOT}/hourglass_4__td_0__double.yaml"
+#   "${CFG_ROOT}/hourglass_4__td_1__double.yaml"
+
 )
 for cfg in "${cfg_list[@]}"
 do

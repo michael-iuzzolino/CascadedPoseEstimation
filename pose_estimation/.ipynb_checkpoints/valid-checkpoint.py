@@ -28,7 +28,7 @@ from core.config import update_config
 from core.config import update_dir
 from core.loss import JointsMSELoss
 from core.function import validate, test
-from utils.utils import create_logger
+from utils.utils import create_experiment_directory
 
 import dataset
 import models.pose_stacked_hg
@@ -62,7 +62,7 @@ def parse_args():
                         help='model state file',
                         type=str)
     parser.add_argument('--result_root',
-                        default="/hdd/mliuzzolino/CascadedPoseEstimation/results/",
+                        default="/hdd/mliuzzolino/TDPoseEstimation/results/",
                         help='Root for results',
                         type=str)
     parser.add_argument('--threshold',
@@ -115,19 +115,16 @@ def reset_config(config, args):
         config.TEST.COCO_BBOX_FILE = args.coco_bbox_file
 
 
-def get_state_dict(output_dir, config, logger, use_best=False):
+def get_state_dict(output_dir, config, use_best=False):
   if config.TEST.MODEL_FILE:
-    logger.info('=> loading model from {}'.format(config.TEST.MODEL_FILE))
     state_dict = torch.load(config.TEST.MODEL_FILE)
   else:
     ckpt_path = os.path.join(output_dir, f"final_state.pth.tar")
     
     if os.path.exists(ckpt_path) and not use_best:
-      logger.info('=> loading model from {}'.format(ckpt_path))
       state_dict = torch.load(ckpt_path)
     else:
       ckpt_path = os.path.join(output_dir, f"model_best.pth.tar")
-      logger.info('=> loading model from {}'.format(ckpt_path))
       state_dict = torch.load(ckpt_path)
   
   if "state_dict" in state_dict:
@@ -141,19 +138,13 @@ def main():
     args = parse_args()
     reset_config(config, args)
     
-    # Setup logger
-    logger, output_dir, tb_log_dir = create_logger(
+    output_dir = create_experiment_directory(
         config, 
         args.cfg, 
-        'valid',
         distillation="distillation" in args.cfg,
+        make_dir=False,
     )
-    
-#     logger, output_dir, tb_log_dir = create_logger(
-#         config, args.cfg, 'valid')
-    logger.info(pprint.pformat(args))
-    logger.info(pprint.pformat(config))
-    
+
     # Setup output dir
     output_dir_tmp = os.path.sep.join(output_dir.split(os.path.sep)[1:])
     final_result_root = os.path.join(args.result_root, output_dir_tmp)
@@ -177,7 +168,6 @@ def main():
     # Load state dict
     state_dict = get_state_dict(output_dir, 
                                 config, 
-                                logger, 
                                 use_best=args.load_best_ckpt)
     
     # Load previous model
