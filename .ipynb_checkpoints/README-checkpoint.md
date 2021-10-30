@@ -4,9 +4,9 @@
 export CUDA_VISIBLE_DEVICES=0; python pose_estimation/train.py \
     --cfg experiments/mpii/hourglass/hourglass_4__td_0__double.yaml
     
-  export CUDA_VISIBLE_DEVICES=0; python pose_estimation/train.py \
-      --cfg experiments/mpii/hourglass/hourglass_4__td_0_25__double.yaml
-    
+export CUDA_VISIBLE_DEVICES=0; python pose_estimation/train.py \
+    --cfg experiments/mpii/hourglass/hourglass_4__td_0_25__double.yaml
+
 export CUDA_VISIBLE_DEVICES=0; python pose_estimation/train.py \
     --cfg experiments/mpii/hourglass/hourglass_4__td_0_5__double.yaml
     
@@ -21,7 +21,13 @@ export CUDA_VISIBLE_DEVICES=0; python pose_estimation/train.py \
     --cfg experiments/mpii/hourglass/hourglass_4__td_0.yaml
     
 export CUDA_VISIBLE_DEVICES=0; python pose_estimation/train.py \
+    --cfg experiments/mpii/hourglass/hourglass_4__td_0_25.yaml
+    
+export CUDA_VISIBLE_DEVICES=0; python pose_estimation/train.py \
     --cfg experiments/mpii/hourglass/hourglass_4__td_0_5.yaml
+    
+export CUDA_VISIBLE_DEVICES=0; python pose_estimation/train.py \
+    --cfg experiments/mpii/hourglass/hourglass_4__td_0_9.yaml
     
 export CUDA_VISIBLE_DEVICES=0; python pose_estimation/train.py \
     --cfg experiments/mpii/hourglass/hourglass_4__td_1.yaml

@@ -97,7 +97,8 @@ def get_state_dict(output_dir, config, use_best=False):
 def setup_teacher(config, args, gpus):
     original_cfg = args.cfg
     update_config(original_cfg)
-    args.cfg = original_cfg.TEACHER_CFG  # "experiments/mpii/hourglass/hourglass_4__td_1__double.yaml"
+    # "experiments/mpii/hourglass/hourglass_4__td_1__double.yaml"
+    args.cfg = original_cfg.MODEL.TEACHER_CFG  
     update_config(args.cfg)
     teacher_model = models.pose_stacked_hg.get_pose_net(config, is_train=False)
     
