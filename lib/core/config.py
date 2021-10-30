@@ -68,6 +68,7 @@ config.MODEL.CASCADED = False
 config.MODEL.NAME = "pose_resnet"  # "pose_resnet", "unet"
 config.MODEL.INIT_WEIGHTS = False
 config.MODEL.PRETRAINED = ""
+config.MODEL.TEACHER_CFG = ""
 config.MODEL.NUM_JOINTS = 16
 config.MODEL.NUM_CHANNELS = 144  # 144, 256
 config.MODEL.IMAGE_SIZE = [256, 256]  # width * height, ex: 192 * 256
