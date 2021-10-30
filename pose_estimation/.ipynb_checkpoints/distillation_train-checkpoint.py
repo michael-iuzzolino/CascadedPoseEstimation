@@ -96,12 +96,11 @@ def get_state_dict(output_dir, config, use_best=False):
 
 def setup_teacher(config, args, gpus):
     original_cfg = args.cfg
-    update_config(original_cfg)
+    update_config(args.cfg)
     # "experiments/mpii/hourglass/hourglass_4__td_1__double.yaml"
-    args.cfg = original_cfg.MODEL.TEACHER_CFG  
+    args.cfg = config.MODEL.TEACHER_CFG  
     update_config(args.cfg)
     teacher_model = models.pose_stacked_hg.get_pose_net(config, is_train=False)
-    
     teacher_output_dir = create_experiment_directory(
         config, 
         args.cfg, 
@@ -118,9 +117,7 @@ def setup_teacher(config, args, gpus):
     # Set cfg back to original
     args.cfg = original_cfg
     update_config(args.cfg)
-    
     teacher_model = torch.nn.DataParallel(teacher_model, device_ids=gpus).cuda()
-    
     return teacher_model
 
   

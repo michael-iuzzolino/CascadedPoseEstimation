@@ -35,8 +35,6 @@ def train(
     optimizer, 
     epoch, 
     output_dir, 
-    tb_log_dir, 
-    writer_dict
   ):
   batch_time = AverageMeter()
   data_time = AverageMeter()
@@ -90,13 +88,8 @@ def train(
         msg += f"stack={i}: {acc.val:0.3f} ({acc.avg:0.3f}), "
       msg = msg[:-2]
       logger.info(msg)
-
-      writer = writer_dict['writer']
-      global_steps = writer_dict['train_global_steps']
-      writer.add_scalar('train_loss', losses.val, global_steps)
-      for i, acc in enumerate(accs):
-        writer.add_scalar(f'train_acc_{i}', acc.val, global_steps)
-      writer_dict['train_global_steps'] = global_steps + 1
+      sys.stdout.write(f"\r{msg}")
+      sys.stdout.flush()
 
       prefix = '{}_{}'.format(os.path.join(output_dir, 'train'), i)
       save_debug_images(config, input, meta, target, pred*4, output,
@@ -111,8 +104,6 @@ def validate(
     teacher_model, 
     criterion, 
     output_dir, 
-    tb_log_dir, 
-    writer_dict=None
   ):
   batch_time = AverageMeter()
   losses = AverageMeter()
@@ -209,19 +200,6 @@ def validate(
       _print_name_value(name_value, full_arch_name)
   else:
     _print_name_value(name_values, full_arch_name)
-
-  if writer_dict:
-    writer = writer_dict['writer']
-    global_steps = writer_dict['valid_global_steps']
-    writer.add_scalar('valid_loss', losses.avg, global_steps)
-    for i, acc in enumerate(accs):
-      writer.add_scalar(f'valid_acc_{i}', acc.val, global_steps)
-    if isinstance(name_values, list):
-      for name_value in name_values:
-        writer.add_scalars('valid', dict(name_value), global_steps)
-    else:
-      writer.add_scalars('valid', dict(name_values), global_steps)
-    writer_dict['valid_global_steps'] = global_steps + 1
 
   return perf_indicator
 
