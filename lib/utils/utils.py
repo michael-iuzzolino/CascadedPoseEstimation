@@ -43,11 +43,14 @@ def create_experiment_directory(cfg, cfg_name, distillation=False, make_dir=True
     if small:
         model_str = model_str + "__small"
     if distillation:
-        model_str = model_str + "__distillation"
-        alpha_val = cfg.LOSS.DISTILLATION_ALPHA 
-        model_str = model_str + f"__alpha_{alpha_val}"
-    if cfg.MODEL.EXTRA.SHARE_HG_WEIGHTS:
-        model_str = model_str + "__shared_weights"
+        model_str = model_str + "__distill"
+        teacher_td = cfg.MODEL.TEACHER_CFG.split("td_")[1].split("__")[0]
+        if "_" in teacher_td:
+          teacher_td = teacher_td.replace("_", ".")
+        teacher_td = float(teacher_td)
+        model_str = model_str + f"__TD_{teacher_td}"
+#     if cfg.MODEL.EXTRA.SHARE_HG_WEIGHTS:
+#         model_str = model_str + "__shared_weights"
     if cfg.MODEL.EXTRA.DOUBLE_STACK:
         model_str = model_str + "__double"
 
