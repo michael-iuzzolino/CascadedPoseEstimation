@@ -64,7 +64,13 @@ export CUDA_VISIBLE_DEVICES=0; python pose_estimation/distillation_train.py \
     --cfg experiments/mpii/hourglass/hourglass_4__td_0_5__distill_td_0.yaml
     
 export CUDA_VISIBLE_DEVICES=0; python pose_estimation/distillation_train.py \
+    --cfg experiments/mpii/hourglass/hourglass_4__td_0_5__distill_td_0_25.yaml
+    
+export CUDA_VISIBLE_DEVICES=0; python pose_estimation/distillation_train.py \
     --cfg experiments/mpii/hourglass/hourglass_4__td_0_5__distill_td_0_5.yaml
+    
+export CUDA_VISIBLE_DEVICES=0; python pose_estimation/distillation_train.py \
+    --cfg experiments/mpii/hourglass/hourglass_4__td_0_5__distill_td_0_9.yaml
     
 export CUDA_VISIBLE_DEVICES=0; python pose_estimation/distillation_train.py \
     --cfg experiments/mpii/hourglass/hourglass_4__td_0_5__distill_td_1.yaml
