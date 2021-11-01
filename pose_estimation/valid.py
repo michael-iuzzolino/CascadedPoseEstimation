@@ -144,6 +144,13 @@ def main():
         distillation="distillation" in args.cfg,
         make_dir=False,
     )
+    basename = os.path.basename(args.cfg)
+    if "distill" in basename:
+      teacher_td = basename.split("__distill")[1].split(".")[0].split("td_")[1]
+      if "_" in teacher_td:
+        teacher_td = teacher_td.replace("_", ".")
+      teacher_td = float(teacher_td)
+      output_dir = f"{output_dir}__distill__TD_{teacher_td}"
 
     # Setup output dir
     output_dir_tmp = os.path.sep.join(output_dir.split(os.path.sep)[1:])
