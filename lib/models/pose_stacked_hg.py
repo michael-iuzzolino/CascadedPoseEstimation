@@ -184,6 +184,7 @@ class HourGlass(nn.Module):
     super(HourGlass, self).__init__()
     self._stack_i = stack_i
     self._merge_mode = merge_mode
+    self.relu = nn.ReLU()
     
     # Pooling and upsampling ops
     self.pool = nn.MaxPool2d((2,2))
