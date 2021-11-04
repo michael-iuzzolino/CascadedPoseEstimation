@@ -422,7 +422,7 @@ class PoseNet(nn.Module):
     for stack_i in range(self._n_stacks):
       identity = x.clone()
       hg_out = self.hgs[stack_i](x)
-      features_i = self.feature_maps[stack_i](hg_out)
+      # features_i = self.feature_maps[stack_i](hg_out)
       logit_i = self.logit_maps[stack_i](features_i)
       logits.append(logit_i)
       residual = features_i + self.remaps[stack_i](logit_i)
