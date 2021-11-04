@@ -273,6 +273,23 @@ class HourGlass(nn.Module):
         stride=1, 
         padding=1
     )
+
+    # Feature map
+    self.feature_map = nn.Sequential(
+      MultiScaleResblock(
+          in_channels=in_channels, 
+          out_channels=in_channels,
+      ),
+      nn.Conv2d(in_channels, in_channels, kernel_size=1, stride=1),
+      nn.BatchNorm2d(in_channels),
+      self.relu,
+    )
+
+    # Logit map
+    self.logit_map = nn.Sequential(
+      nn.Conv2d(in_channels, n_joints, kernel_size=1, stride=1)
+    )
+     
     
   def forward(self, x):
     if self.use_conversion_conv:
@@ -294,8 +311,10 @@ class HourGlass(nn.Module):
     
     if self.use_conversion_conv:
       out = self.conversion_out_conv(out)
-      
-    return out
+    
+    features = self.feature_map(out)
+    logits = self.logit_map(features)
+    return features, logits
   
   
 class PoseNet(nn.Module):
@@ -323,26 +342,6 @@ class PoseNet(nn.Module):
     self._setup_hgs()
     if self._double_stack:
       self._n_stacks *= 2
-    
-    # Feature maps
-    self.feature_maps = nn.ModuleList([
-        nn.Sequential(
-          MultiScaleResblock(
-              in_channels=n_features, 
-              out_channels=n_features,
-          ),
-          nn.Conv2d(n_features, n_features, kernel_size=1, stride=1),
-          nn.BatchNorm2d(n_features),
-          self.relu,
-        )
-      for i in range(self._n_stacks)
-    ])
-    
-    # Logit maps
-    self.logit_maps = nn.ModuleList([
-        nn.Sequential(nn.Conv2d(n_features, n_joints, kernel_size=1, stride=1))
-      for i in range(self._n_stacks)
-    ])
     
     # Remaps
     self.remaps = nn.ModuleList([
@@ -421,9 +420,7 @@ class PoseNet(nn.Module):
     logits = []
     for stack_i in range(self._n_stacks):
       identity = x.clone()
-      hg_out = self.hgs[stack_i](x)
-      # features_i = self.feature_maps[stack_i](hg_out)
-      logit_i = self.logit_maps[stack_i](features_i)
+      features_i, logit_i = self.hgs[stack_i](x)
       logits.append(logit_i)
       residual = features_i + self.remaps[stack_i](logit_i)
       x = identity + residual
