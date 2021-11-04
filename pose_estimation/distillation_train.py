@@ -100,6 +100,9 @@ def setup_teacher(config, args, gpus):
     # "experiments/mpii/hourglass/hourglass_4__td_1__double.yaml"
     args.cfg = config.MODEL.TEACHER_CFG  
     update_config(args.cfg)
+
+    # Ensure shared weights turned off
+    config.MODEL.EXTRA.SHARE_HG_WEIGHTS = False
     teacher_model = models.pose_stacked_hg.get_pose_net(config, is_train=False)
     teacher_output_dir = create_experiment_directory(
         config, 
