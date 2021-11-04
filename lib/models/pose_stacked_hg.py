@@ -426,7 +426,6 @@ class PoseNet(nn.Module):
       logit_i = self.logit_maps[stack_i](features_i)
       logits.append(logit_i)
       residual = features_i + self.remaps[stack_i](logit_i)
-      
       x = identity + residual
     
     logits = torch.stack(logits)
