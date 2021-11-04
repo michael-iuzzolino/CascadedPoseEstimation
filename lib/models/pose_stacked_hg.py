@@ -290,7 +290,12 @@ class HourGlass(nn.Module):
     self.logit_map = nn.Sequential(
       nn.Conv2d(in_channels, n_joints, kernel_size=1, stride=1)
     )
-     
+
+    # Remaps
+    self.remap = nn.Sequential(
+      nn.Conv2d(n_joints, in_channels, kernel_size=1, stride=1),
+      self.relu,
+    )
     
   def forward(self, x):
     if self.use_conversion_conv:
@@ -315,7 +320,10 @@ class HourGlass(nn.Module):
     
     features = self.feature_map(out)
     logits = self.logit_map(features)
-    return features, logits
+    remap_i = self.remap(logits)
+    residual = features + remap_i
+
+    return residual, logits
   
   
 class PoseNet(nn.Module):
@@ -343,15 +351,6 @@ class PoseNet(nn.Module):
     self._setup_hgs()
     if self._double_stack:
       self._n_stacks *= 2
-    
-    # Remaps
-    self.remaps = nn.ModuleList([
-        nn.Sequential(
-          nn.Conv2d(n_joints, n_features, kernel_size=1, stride=1),
-          self.relu,
-        )
-      for i in range(self._n_stacks)
-    ])
     
   def _setup_hgs(self):
     if self._kwargs.get("share_weights", False):
@@ -421,9 +420,8 @@ class PoseNet(nn.Module):
     logits = []
     for stack_i in range(self._n_stacks):
       identity = x.clone()
-      features_i, logit_i = self.hgs[stack_i](x)
+      residual, logit_i = self.hgs[stack_i](x)
       logits.append(logit_i)
-      residual = features_i + self.remaps[stack_i](logit_i)
       x = identity + residual
     
     logits = torch.stack(logits)
