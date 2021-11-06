@@ -314,6 +314,7 @@ class PoseNet(nn.Module):
     self._double_stack = double_stack
     self._merge_mode = merge_mode
     self._kwargs = kwargs
+    self._skip_active = kwargs.get("skip_active", True)
     self.relu = nn.ReLU()
     
     # Head layer
@@ -355,6 +356,7 @@ class PoseNet(nn.Module):
     
   def _setup_hgs(self):
     if self._kwargs.get("share_weights", False):
+      print("Sharing weights!")
       if self._double_stack:
         small_hg_model = HourGlass(
             stack_i=0, 
@@ -380,6 +382,7 @@ class PoseNet(nn.Module):
         )
         self.hgs = nn.ModuleList([hg_model for i in range(self._n_stacks)])
     else:
+      print("NOT Sharing weights!")
       if self._double_stack:
         first_stack = [
             HourGlass(
@@ -427,7 +430,10 @@ class PoseNet(nn.Module):
       logits.append(logit_i)
       residual = features_i + self.remaps[stack_i](logit_i)
       
-      x = identity + residual
+      if self._skip_active:
+        x = identity + residual
+      else:
+        x = residual
     
     logits = torch.stack(logits)
     return logits
@@ -448,6 +454,7 @@ def get_pose_net(cfg, is_train, **kwargs):
       merge_mode=cfg.MODEL.MERGE_MODE,
       identity_gating_mode="per_channel",
       share_weights=share_weights,
+      skip_active=cfg.MODEL.EXTRA.get("SKIP_ACTIVE", True),
   )
 
   return model

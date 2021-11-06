@@ -35,6 +35,22 @@ export CUDA_VISIBLE_DEVICES=0; python pose_estimation/train.py \
     --cfg experiments/mpii/hourglass/hourglass_8__td_1.yaml
 
 
+# No Distill UNTIED
+export CUDA_VISIBLE_DEVICES=0; python pose_estimation/train.py \
+    --cfg experiments/mpii/hourglass/hourglass_8__td_0.yaml
+
+export CUDA_VISIBLE_DEVICES=0; python pose_estimation/train.py \
+    --cfg experiments/mpii/hourglass/hourglass_8__td_0_25.yaml
+
+export CUDA_VISIBLE_DEVICES=0; python pose_estimation/train.py \
+    --cfg experiments/mpii/hourglass/hourglass_8__td_0_5.yaml
+
+export CUDA_VISIBLE_DEVICES=0; python pose_estimation/train.py \
+    --cfg experiments/mpii/hourglass/hourglass_8__td_0_9.yaml
+
+export CUDA_VISIBLE_DEVICES=0; python pose_estimation/train.py \
+    --cfg experiments/mpii/hourglass/hourglass_8__td_1_untied.yaml
+
 # New 8X tied Weights (targets)
 export CUDA_VISIBLE_DEVICES=0; python pose_estimation/train.py \
     --cfg experiments/mpii/hourglass/hourglass_8__td_0.yaml
