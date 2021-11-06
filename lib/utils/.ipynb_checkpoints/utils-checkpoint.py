@@ -49,8 +49,10 @@ def create_experiment_directory(cfg, cfg_name, distillation=False, make_dir=True
           teacher_td = teacher_td.replace("_", ".")
         teacher_td = float(teacher_td)
         model_str = model_str + f"__TD_{teacher_td}"
-#     if cfg.MODEL.EXTRA.SHARE_HG_WEIGHTS:
-#         model_str = model_str + "__shared_weights"
+    if not cfg.MODEL.EXTRA.SHARE_HG_WEIGHTS:
+        model_str = model_str + "__untied_weights"
+    if not cfg.MODEL.EXTRA.get("SKIP_ACTIVE", True):
+        model_str = model_str + "__no_skip"
     if cfg.MODEL.EXTRA.DOUBLE_STACK:
         model_str = model_str + "__double"
 
@@ -119,3 +121,7 @@ def save_checkpoint(save_dict, is_best, output_dir, filename='checkpoint.pth.tar
     best_ckpt_path = os.path.join(output_dir, 'model_best.pth.tar')
     if is_best:
         torch.save(save_dict, best_ckpt_path)
+
+
+def count_parameters(model):
+    return sum(p.numel() for p in model.parameters() if p.requires_grad)
