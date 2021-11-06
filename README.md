@@ -21,13 +21,17 @@ export CUDA_VISIBLE_DEVICES=0; python pose_estimation/distillation_train.py \
 # No Distill
 export CUDA_VISIBLE_DEVICES=0; python pose_estimation/train.py \
     --cfg experiments/mpii/hourglass/hourglass_8__td_0.yaml
-    export CUDA_VISIBLE_DEVICES=0; python pose_estimation/train.py \
+
+export CUDA_VISIBLE_DEVICES=0; python pose_estimation/train.py \
     --cfg experiments/mpii/hourglass/hourglass_8__td_0_25.yaml
-    export CUDA_VISIBLE_DEVICES=0; python pose_estimation/train.py \
+
+export CUDA_VISIBLE_DEVICES=0; python pose_estimation/train.py \
     --cfg experiments/mpii/hourglass/hourglass_8__td_0_5.yaml
-    export CUDA_VISIBLE_DEVICES=0; python pose_estimation/train.py \
+
+export CUDA_VISIBLE_DEVICES=0; python pose_estimation/train.py \
     --cfg experiments/mpii/hourglass/hourglass_8__td_0_9.yaml
-    export CUDA_VISIBLE_DEVICES=0; python pose_estimation/train.py \
+
+export CUDA_VISIBLE_DEVICES=0; python pose_estimation/train.py \
     --cfg experiments/mpii/hourglass/hourglass_8__td_1.yaml
 
 
