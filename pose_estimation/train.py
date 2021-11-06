@@ -29,6 +29,7 @@ from core.config import get_model_name
 from core.loss import TDLambda_JointsMSELoss
 from core.function import train
 from core.function import validate
+from utils.utils import count_parameters
 from utils.utils import get_optimizer
 from utils.utils import save_checkpoint
 from utils.utils import create_experiment_directory
@@ -90,6 +91,12 @@ def main():
 
     # Setup model
     model = models.pose_stacked_hg.get_pose_net(config, is_train=True)
+
+    n_params = count_parameters(model)
+    print(f"# model params: {n_params:,}")
+    with open(os.path.join(output_dir, "n_params.txt"), "w") as outfile:
+        outfile.write(f"# Params: {n_params:,}")
+    exit()
 
     # copy model file
     print("Copying model file...")

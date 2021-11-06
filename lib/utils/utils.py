@@ -119,3 +119,7 @@ def save_checkpoint(save_dict, is_best, output_dir, filename='checkpoint.pth.tar
     best_ckpt_path = os.path.join(output_dir, 'model_best.pth.tar')
     if is_best:
         torch.save(save_dict, best_ckpt_path)
+
+
+def count_parameters(model):
+    return sum(p.numel() for p in model.parameters() if p.requires_grad)
