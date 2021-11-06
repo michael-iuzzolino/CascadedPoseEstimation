@@ -30,7 +30,7 @@ MODEL:
   EXTRA:
     DOUBLE_STACK: false
     NUM_DOUBLE_CHANNELS: 144  # 144, 256
-    SHARE_HG_WEIGHTS: true
+    SHARE_HG_WEIGHTS: false
     SKIP_ACTIVE: false
     TARGET_TYPE: gaussian
     SIGMA: 2
