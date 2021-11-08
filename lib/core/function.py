@@ -21,6 +21,7 @@ from core.evaluate import accuracy
 from core.inference import get_final_preds
 from utils.transforms import flip_back
 from utils.vis import save_debug_images
+from utils.vis import log_outputs
 
 
 logger = logging.getLogger(__name__)
@@ -84,6 +85,7 @@ def train(config, train_loader, model, criterion, optimizer, epoch, output_dir):
             sys.stdout.flush()
 
             prefix = '{}_{}'.format(os.path.join(output_dir, 'train'), i)
+            
             save_debug_images(
               config, x_data, meta, target, pred * 4, output, prefix
             )
@@ -129,8 +131,10 @@ def validate(config, val_loader, val_dataset, model, criterion, output_dir):
 
         # Measure accuracy
         for acc, output in zip(accs, outputs):
-            _, avg_acc, cnt, pred = accuracy(output.cpu().numpy(),
-                                            target.cpu().numpy())
+            _, avg_acc, cnt, pred = accuracy(
+                output.cpu().numpy(),
+                target.cpu().numpy()
+            )
             acc.update(avg_acc, cnt)
         
         
@@ -192,7 +196,7 @@ def validate(config, val_loader, val_dataset, model, criterion, output_dir):
     return perf_indicator
 
 
-def test(config, val_loader, val_dataset, model, threshold=0.5):
+def test(config, val_loader, val_dataset, model, threshold=0.5, save_root="", max_batch_logs=5):
     # switch to evaluate mode
     model.eval()
     
@@ -202,25 +206,30 @@ def test(config, val_loader, val_dataset, model, threshold=0.5):
     accs = [AverageMeter() for _ in range(n_timesteps)]
     
     with torch.no_grad():
-        for i, (x_data, target, _, _) in enumerate(val_loader):
-          sys.stdout.write(f"\rBatch {i+1:,}/{len(val_loader):,}...")
-          sys.stdout.flush()
+        for i, (x_data, target, target_weight, meta) in enumerate(val_loader):
+            sys.stdout.write(f"\rBatch {i+1:,}/{len(val_loader):,}...")
+            sys.stdout.flush()
 
-          # Set target and target_weight device
-          target = target.cuda(non_blocking=True)
-      
-          # Compute outputs
-          with torch.no_grad():
-              outputs = model(x_data)
+            # Set target and target_weight device
+            target = target.cuda(non_blocking=True)
         
-          # Measure accuracy
-          for acc, output in zip(accs, outputs):
-              _, avg_acc, cnt, pred = accuracy(
+            # Compute outputs
+            with torch.no_grad():
+                outputs = model(x_data)
+        
+            # Measure accuracy
+            for acc, output in zip(accs, outputs):
+                _, avg_acc, cnt, pred = accuracy(
                 output.cpu().numpy(),
                 target.cpu().numpy(),
                 threshold=threshold
-              )
-              acc.update(avg_acc, cnt)
+                )
+                acc.update(avg_acc, cnt)
+
+            # Log data
+            if save_root and i < max_batch_logs:
+                log_outputs(x_data, target, outputs, meta, save_root)
+
     print("\n")
     for i, acc in enumerate(accs):
         print(f"Stack={i}: {acc.avg * 100:0.3f}%")

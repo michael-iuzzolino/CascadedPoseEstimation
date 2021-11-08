@@ -1,6 +1,8 @@
 #!/bin/bash
 
 CFG_ROOT="experiments/mpii/hourglass"
+MAX_BATCH_LOGS=2
+
 cfg_list=(
 
 #   "${CFG_ROOT}/hourglass_4__td_0__double.yaml"
@@ -9,11 +11,17 @@ cfg_list=(
 #   "${CFG_ROOT}/hourglass_4__td_0_9__double.yaml"
 #   "${CFG_ROOT}/hourglass_4__td_1__double.yaml"
 
-  "${CFG_ROOT}/hourglass_8__td_0.yaml"
+#   "${CFG_ROOT}/hourglass_8__td_0.yaml"
 #   "${CFG_ROOT}/hourglass_8__td_0_25.yaml"
-  "${CFG_ROOT}/hourglass_8__td_0_5.yaml"
+#   "${CFG_ROOT}/hourglass_8__td_0_5.yaml"
 #   "${CFG_ROOT}/hourglass_8__td_0_9.yaml"
 #   "${CFG_ROOT}/hourglass_8__td_1.yaml"
+
+#   "${CFG_ROOT}/hourglass_8__td_0_untied.yaml"
+  "${CFG_ROOT}/hourglass_8__td_0_25_untied.yaml"
+#   "${CFG_ROOT}/hourglass_8__td_0_5_untied.yaml"
+#   "${CFG_ROOT}/hourglass_8__td_0_9_untied.yaml"
+#   "${CFG_ROOT}/hourglass_8__td_1_untied.yaml"
 
 #   "${CFG_ROOT}/hourglass_8__td_0__distill_td_0.yaml"
 #   "${CFG_ROOT}/hourglass_8__td_0_25__distill_td_0.yaml"
@@ -47,6 +55,8 @@ do
     cmd+=( --cfg $cfg )
     cmd+=( --force_overwrite )
     cmd+=( --load_best_ckpt )
+#     cmd+=( --vis_output_only )
+    cmd+=( --max_batch_logs $MAX_BATCH_LOGS )
 #     Run command
     "${cmd[@]}"
 done

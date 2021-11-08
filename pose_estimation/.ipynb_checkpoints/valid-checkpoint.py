@@ -52,6 +52,10 @@ def parse_args():
                         help='frequency of logging',
                         default=config.PRINT_FREQ,
                         type=int)
+    parser.add_argument('--max_batch_logs',
+                        help='Max # of batches to save data from',
+                        default=5,
+                        type=int)
     parser.add_argument('--gpus',
                         help='gpus',
                         type=str)
@@ -86,6 +90,9 @@ def parse_args():
                         action='store_true')
     parser.add_argument('--force_overwrite',
                         help='Force overwrite',
+                        action='store_true')
+    parser.add_argument('--vis_output_only',
+                        help='Visualize output only; dont save results',
                         action='store_true')
     parser.add_argument('--coco-bbox-file',
                         help='coco detection bbox file',
@@ -157,7 +164,12 @@ def main():
     final_result_root = os.path.join(args.result_root, output_dir_tmp)
     if not os.path.exists(final_result_root):
       os.makedirs(final_result_root)
-      
+    
+    # Save output save root
+    save_root = final_result_root.replace("/hdd/", "/hdd2/")
+    if not os.path.exists(save_root):
+      os.makedirs(save_root)
+
     # Set results save path
     save_path = os.path.join(final_result_root, f"result__{args.threshold}.npy")
     if os.path.exists(save_path) and not args.force_overwrite:
@@ -182,11 +194,6 @@ def main():
 
     gpus = [int(i) for i in config.GPUS.split(',')]
     model = torch.nn.DataParallel(model, device_ids=gpus).cuda()
-
-    # define loss function (criterion) and optimizer
-    criterion = JointsMSELoss(
-        use_target_weight=config.LOSS.USE_TARGET_WEIGHT
-    ).cuda()
 
     # Data loading code
     normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
@@ -215,12 +222,15 @@ def main():
         valid_loader, 
         valid_dataset, 
         model, 
-        threshold=args.threshold
+        threshold=args.threshold,
+        save_root=save_root,
+        max_batch_logs=args.max_batch_logs,
     )
     
-    print(f"Saving to {save_path}")
-    np.save(save_path, result)
-    print("Complete.")
+    if not args.vis_output_only:
+      print(f"Saving to {save_path}")
+      np.save(save_path, result)
+      print("Complete.")
 
 
 if __name__ == '__main__':

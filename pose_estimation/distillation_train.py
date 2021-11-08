@@ -110,7 +110,8 @@ def setup_teacher(config, args, gpus):
         distillation=False,
         make_dir=False,
     )
-    
+    if "untied_weights" in teacher_output_dir:
+        teacher_output_dir = teacher_output_dir.replace("__untied_weights", "")
     # Load state dict
     state_dict = get_state_dict(teacher_output_dir, config, use_best=True)
 

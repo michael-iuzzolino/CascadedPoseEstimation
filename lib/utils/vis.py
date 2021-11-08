@@ -9,16 +9,82 @@ from __future__ import division
 from __future__ import print_function
 
 import math
-
+import os
 import numpy as np
+import torch
 import torchvision
+from torchvision.utils import make_grid
 import cv2
 
 from core.inference import get_max_preds
 
 
-def save_batch_image_with_joints(batch_image, batch_joints, batch_joints_vis,
-                                 file_name, nrow=8, padding=2):
+def combine_heatmap_joints(X, resize=()):
+    X_joined = X.sum(axis=0)
+    if resize:
+        X_joined = cv2.resize(X_joined, resize, interpolation=cv2.INTER_CUBIC)
+    return X_joined
+
+def log_outputs(x_data, target, outputs, meta, save_root):
+    renorm = lambda ele: (ele - ele.min()) / (ele.max() - ele.min())
+
+    for i in range(x_data.shape[0]):
+        save_path = os.path.join(save_root, f"batch_{i:04d}.pt")
+        Xi = x_data[i].permute(1,2,0)
+        Xi = renorm(Xi).cpu().detach().numpy()
+        Xi = cv2.cvtColor(Xi, cv2.COLOR_BGR2RGB)
+
+        yi = target[i].cpu().detach().numpy()
+        y_target = combine_heatmap_joints(yi, resize=Xi.shape[:2])
+        y_target = renorm(y_target)
+        outputs_i = outputs[:,i].cpu().detach().numpy()
+
+        out_combos = []
+        pred_joint_imgs = []
+        combo_joint_imgs = []
+        for out_i in outputs_i:
+            out_combo = combine_heatmap_joints(out_i, resize=Xi.shape[:2])
+            out_combo = torch.tensor(out_combo).unsqueeze(dim=0)
+            out_combo = renorm(out_combo)
+            out_combos.append(out_combo)
+            out_i = out_i[np.newaxis, ...]
+            joint_pred, _ = get_max_preds(out_i)
+            joint_img_i = save_batch_image_with_joints(
+                batch_image=torch.tensor(Xi).permute(2,0,1).unsqueeze(dim=0), 
+                batch_joints=joint_pred * 4, 
+                batch_joints_vis=meta["joints_vis"],
+                joint_color=(255,0,0),
+            )
+            combo_img_i = save_batch_image_with_joints(
+                batch_image=torch.tensor(Xi).permute(2,0,1).unsqueeze(dim=0), 
+                batch_joints=joint_pred * 4, 
+                batch_joints_2=meta["joints"], 
+                batch_joints_vis=meta["joints_vis"],
+                joint_color=(255,0,0),
+                joint_color_2=(0,255,0),
+            )
+            pred_joint_imgs.append(joint_img_i)
+            combo_joint_imgs.append(combo_img_i)
+
+        torch.save({
+            "x_data": Xi,
+            "target": y_target,
+            "predictions": out_combos,
+            "pred_joint_imgs": pred_joint_imgs,
+            "combo_joint_imgs": combo_joint_imgs,
+        }, save_path)
+    
+def save_batch_image_with_joints(
+    batch_image, 
+    batch_joints, 
+    batch_joints_vis,
+    batch_joints_2=[],
+    file_name="", 
+    nrow=8, 
+    padding=2,
+    joint_color=(255, 0, 0),
+    joint_color_2=(0,255,0),
+):
     '''
     batch_image: [batch_size, channel, height, width]
     batch_joints: [batch_size, num_joints, 3],
@@ -40,19 +106,34 @@ def save_batch_image_with_joints(batch_image, batch_joints, batch_joints_vis,
             if k >= nmaps:
                 break
             joints = batch_joints[k]
+            if len(batch_joints_2):
+                joints_2 = batch_joints_2[k]
+            else:
+                joints_2 = joints
             joints_vis = batch_joints_vis[k]
 
-            for joint, joint_vis in zip(joints, joints_vis):
+            for joint, joint_2, joint_vis in zip(joints, joints_2, joints_vis):
                 joint[0] = x * width + padding + joint[0]
                 joint[1] = y * height + padding + joint[1]
                 if joint_vis[0]:
-                    cv2.circle(ndarr, (int(joint[0]), int(joint[1])), 2, [255, 0, 0], 2)
+                    cv2.circle(ndarr, (int(joint[0]), int(joint[1])), 2, joint_color, 2)
+                if len(batch_joints_2):
+                    joint_2[0] = x * width + padding + joint_2[0]
+                    joint_2[1] = y * height + padding + joint_2[1]
+                    if joint_vis[0]:
+                        cv2.circle(ndarr, (int(joint_2[0]), int(joint_2[1])), 2, joint_color_2, 2)
             k = k + 1
-    cv2.imwrite(file_name, ndarr)
+    if file_name:
+        cv2.imwrite(file_name, ndarr)
+    return ndarr
 
 
-def save_batch_heatmaps(batch_image, batch_heatmaps, file_name,
-                        normalize=True):
+def save_batch_heatmaps(
+    batch_image,
+    batch_heatmaps, 
+    file_name,
+    normalize=True
+):
     '''
     batch_image: [batch_size, channel, height, width]
     batch_heatmaps: ['batch_size, num_joints, height, width]
@@ -116,8 +197,15 @@ def save_batch_heatmaps(batch_image, batch_heatmaps, file_name,
     cv2.imwrite(file_name, grid_image)
 
 
-def save_debug_images(config, input, meta, target, joints_pred, output,
-                      prefix):
+def save_debug_images(
+    config, 
+    input, 
+    meta, 
+    target, 
+    joints_pred, 
+    output,
+    prefix
+):
     if not config.DEBUG.DEBUG:
         return
 
