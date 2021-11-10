@@ -94,6 +94,9 @@ def parse_args():
     parser.add_argument('--vis_output_only',
                         help='Visualize output only; dont save results',
                         action='store_true')
+    parser.add_argument('--save_all_data',
+                        help='Save all data',
+                        action='store_true')
     parser.add_argument('--coco-bbox-file',
                         help='coco detection bbox file',
                         type=str)
@@ -145,19 +148,27 @@ def main():
     args = parse_args()
     reset_config(config, args)
     
+    basename = os.path.basename(args.cfg)
+
     output_dir = create_experiment_directory(
         config, 
         args.cfg, 
-        distillation="distillation" in args.cfg,
+        distillation="distill" in basename,
         make_dir=False,
     )
-    basename = os.path.basename(args.cfg)
-    if "distill" in basename:
-      teacher_td = basename.split("__distill")[1].split(".")[0].split("td_")[1]
-      if "_" in teacher_td:
-        teacher_td = teacher_td.replace("_", ".")
-      teacher_td = float(teacher_td)
-      output_dir = f"{output_dir}__distill__TD_{teacher_td}"
+    if ("distill" in basename) and ("untied" in basename):
+      pass
+    elif "untied" in basename:
+      output_dir = f"{output_dir}__no_skip"
+    elif "distill" in basename:
+      pass
+    else:
+      if "distill" in basename:
+        teacher_td = basename.split("__distill")[1].split(".")[0].split("td_")[1]
+        if "_" in teacher_td:
+          teacher_td = teacher_td.replace("_", ".")
+        teacher_td = float(teacher_td)
+        output_dir = f"{output_dir}__distill__TD_{teacher_td}"
 
     # Setup output dir
     output_dir_tmp = os.path.sep.join(output_dir.split(os.path.sep)[1:])
@@ -166,7 +177,7 @@ def main():
       os.makedirs(final_result_root)
     
     # Save output save root
-    save_root = final_result_root.replace("/hdd/", "/hdd2/")
+    save_root = final_result_root.replace("/hdd/", "/hdd3/")
     if not os.path.exists(save_root):
       os.makedirs(save_root)
 
@@ -217,20 +228,25 @@ def main():
     )
 
     # evaluate on validation set
-    result = test(
-        config, 
-        valid_loader, 
-        valid_dataset, 
-        model, 
+    result, total_flops = test(
+        config,
+        valid_loader,
+        model,
         threshold=args.threshold,
         save_root=save_root,
         max_batch_logs=args.max_batch_logs,
+        save_all_data=args.save_all_data,
     )
-    
-    if not args.vis_output_only:
-      print(f"Saving to {save_path}")
-      np.save(save_path, result)
-      print("Complete.")
+
+    if result is not None:
+      flops_save_path = os.path.join(final_result_root, "flops.pt")
+      print(f"Saving flops to {flops_save_path}")
+      torch.save(total_flops, flops_save_path)
+      
+      if not args.vis_output_only:
+        print(f"Saving to {save_path}")
+        np.save(save_path, result)
+        print("Complete.")
 
 
 if __name__ == '__main__':

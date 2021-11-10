@@ -27,7 +27,7 @@ def combine_heatmap_joints(X, resize=()):
 
 def log_outputs(x_data, target, outputs, meta, save_root):
     renorm = lambda ele: (ele - ele.min()) / (ele.max() - ele.min())
-
+    
     for i in range(x_data.shape[0]):
         save_path = os.path.join(save_root, f"batch_{i:04d}.pt")
         Xi = x_data[i].permute(1,2,0)

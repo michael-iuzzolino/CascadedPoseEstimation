@@ -3,60 +3,51 @@
 CFG_ROOT="experiments/mpii/hourglass"
 MAX_BATCH_LOGS=2
 
+THRESHOLD_VALS=( 0.5 )
 cfg_list=(
+  # Tied Weights, No Distillation
+  "${CFG_ROOT}/hourglass_8__td_0.yaml"
+  "${CFG_ROOT}/hourglass_8__td_0_25.yaml"
+  "${CFG_ROOT}/hourglass_8__td_0_5.yaml"
+  "${CFG_ROOT}/hourglass_8__td_0_9.yaml"
+  "${CFG_ROOT}/hourglass_8__td_1.yaml"
 
-#   "${CFG_ROOT}/hourglass_4__td_0__double.yaml"
-#   "${CFG_ROOT}/hourglass_4__td_0_25__double.yaml"
-#   "${CFG_ROOT}/hourglass_4__td_0_5__double.yaml"
-#   "${CFG_ROOT}/hourglass_4__td_0_9__double.yaml"
-#   "${CFG_ROOT}/hourglass_4__td_1__double.yaml"
+  # Untied Weights, Distillation
+  "${CFG_ROOT}/hourglass_8__td_0__distill_td_1_untied.yaml"
+  "${CFG_ROOT}/hourglass_8__td_0_25__distill_td_1_untied.yaml"
+  "${CFG_ROOT}/hourglass_8__td_0_5__distill_td_1_untied.yaml"
+  "${CFG_ROOT}/hourglass_8__td_0_9__distill_td_1_untied.yaml"
+  "${CFG_ROOT}/hourglass_8__td_1__distill_td_1_untied.yaml"
 
-#   "${CFG_ROOT}/hourglass_8__td_0.yaml"
-#   "${CFG_ROOT}/hourglass_8__td_0_25.yaml"
-#   "${CFG_ROOT}/hourglass_8__td_0_5.yaml"
-#   "${CFG_ROOT}/hourglass_8__td_0_9.yaml"
-#   "${CFG_ROOT}/hourglass_8__td_1.yaml"
+  # Tied Weights, Distillation
+  "${CFG_ROOT}/hourglass_8__td_0__distill_td_1.yaml"
+  "${CFG_ROOT}/hourglass_8__td_0_25__distill_td_1.yaml"
+  "${CFG_ROOT}/hourglass_8__td_0_5__distill_td_1.yaml"
+  "${CFG_ROOT}/hourglass_8__td_0_9__distill_td_1.yaml"
+  "${CFG_ROOT}/hourglass_8__td_1__distill_td_1.yaml"
 
+  # Untied Weights, No Distillation
 #   "${CFG_ROOT}/hourglass_8__td_0_untied.yaml"
-  "${CFG_ROOT}/hourglass_8__td_0_25_untied.yaml"
+#   "${CFG_ROOT}/hourglass_8__td_0_25_untied.yaml"
 #   "${CFG_ROOT}/hourglass_8__td_0_5_untied.yaml"
 #   "${CFG_ROOT}/hourglass_8__td_0_9_untied.yaml"
 #   "${CFG_ROOT}/hourglass_8__td_1_untied.yaml"
-
-#   "${CFG_ROOT}/hourglass_8__td_0__distill_td_0.yaml"
-#   "${CFG_ROOT}/hourglass_8__td_0_25__distill_td_0.yaml"
-#   "${CFG_ROOT}/hourglass_8__td_0_5__distill_td_0.yaml"
-#   "${CFG_ROOT}/hourglass_8__td_0_9__distill_td_0.yaml"
-#   "${CFG_ROOT}/hourglass_8__td_1__distill_td_0.yaml"
-
-#   "${CFG_ROOT}/hourglass_8__td_0__distill_td_0_5.yaml"
-#   "${CFG_ROOT}/hourglass_8__td_0_25__distill_td_0_5.yaml"
-#   "${CFG_ROOT}/hourglass_8__td_0_5__distill_td_0_5.yaml"
-#   "${CFG_ROOT}/hourglass_8__td_0_9__distill_td_0_5.yaml"
-#   "${CFG_ROOT}/hourglass_8__td_1__distill_td_0_5.yaml"
-
-#   "${CFG_ROOT}/hourglass_8__td_0__distill_td_1.yaml"
-#   "${CFG_ROOT}/hourglass_8__td_0_25__distill_td_1.yaml"
-#   "${CFG_ROOT}/hourglass_8__td_0_5__distill_td_1.yaml"
-#   "${CFG_ROOT}/hourglass_8__td_0_9__distill_td_1.yaml"
-#   "${CFG_ROOT}/hourglass_8__td_1__distill_td_1.yaml"
-  
-
-#   "${CFG_ROOT}/hourglass_4__td_0__distill_td_1.yaml"
-#   "${CFG_ROOT}/hourglass_4__td_0_5__distill_td_1.yaml"
-#   "${CFG_ROOT}/hourglass_4__td_1__distill_td_1.yaml"
-
 )
 
 
 for cfg in "${cfg_list[@]}"
 do
-    cmd=( python pose_estimation/valid.py )   # create array with one element
-    cmd+=( --cfg $cfg )
-    cmd+=( --force_overwrite )
-    cmd+=( --load_best_ckpt )
-#     cmd+=( --vis_output_only )
-    cmd+=( --max_batch_logs $MAX_BATCH_LOGS )
-#     Run command
-    "${cmd[@]}"
+    for THRESHOLD_VAL in "${THRESHOLD_VALS[@]}"
+    do
+        cmd=( python pose_estimation/valid.py )   # create array with one element
+        cmd+=( --cfg $cfg )
+        cmd+=( --force_overwrite )
+        cmd+=( --threshold $THRESHOLD_VAL )
+        cmd+=( --load_best_ckpt )
+    #     cmd+=( --vis_output_only )
+        cmd+=( --save_all_data )
+        cmd+=( --max_batch_logs $MAX_BATCH_LOGS )
+    #     Run command
+        "${cmd[@]}"
+    done
 done

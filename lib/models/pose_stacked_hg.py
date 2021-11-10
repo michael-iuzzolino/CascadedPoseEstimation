@@ -1,7 +1,7 @@
 import torch
 from torch import nn
 from models import tdl
-
+import utils.flops_benchmark as flops_benchmark
   
 class IdentityMapping(nn.Module):
   def __init__(self, in_channels, out_channels, mode="per_channel"):
@@ -314,7 +314,6 @@ class PoseNet(nn.Module):
     self._double_stack = double_stack
     self._merge_mode = merge_mode
     self._kwargs = kwargs
-    self._skip_active = kwargs.get("skip_active", True)
     self.relu = nn.ReLU()
     
     # Head layer
@@ -419,25 +418,34 @@ class PoseNet(nn.Module):
           for i in range(self._n_stacks)
         ])
   
-  def forward(self, x):
+  def get_flops(self):
+    return self.__dict__.get("_total_flops")
+
+  def forward(self, x, log_flops=False):
     x = self.head_layer(x)
     logits = []
+    total_flops = []
     for stack_i in range(self._n_stacks):
+      if log_flops:
+        flops_benchmark.init(self)
       identity = x.clone()
       hg_out = self.hgs[stack_i](x)
       features_i = self.feature_maps[stack_i](hg_out)
       logit_i = self.logit_maps[stack_i](features_i)
       logits.append(logit_i)
       residual = features_i + self.remaps[stack_i](logit_i)
-      
-      if self._skip_active:
-        x = identity + residual
-      else:
-        x = residual
-    
+      x = identity + residual
+      if log_flops:
+        n_flops = self.compute_total_flops()
+        total_flops.append(n_flops)
+
+        self.cleanup_flop_hooks()
+
     logits = torch.stack(logits)
+    if log_flops:
+      self._total_flops = total_flops
     return logits
-  
+
 
 def get_pose_net(cfg, is_train, **kwargs):
   n_hg_stacks = cfg.MODEL.EXTRA.N_HG_STACKS
@@ -454,7 +462,6 @@ def get_pose_net(cfg, is_train, **kwargs):
       merge_mode=cfg.MODEL.MERGE_MODE,
       identity_gating_mode="per_channel",
       share_weights=share_weights,
-      skip_active=cfg.MODEL.EXTRA.get("SKIP_ACTIVE", True),
   )
 
   return model

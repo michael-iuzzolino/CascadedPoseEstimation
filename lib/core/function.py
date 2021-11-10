@@ -196,15 +196,28 @@ def validate(config, val_loader, val_dataset, model, criterion, output_dir):
     return perf_indicator
 
 
-def test(config, val_loader, val_dataset, model, threshold=0.5, save_root="", max_batch_logs=5):
+def test(
+    config, 
+    val_loader, 
+    model, 
+    threshold=0.5, 
+    save_root="", 
+    max_batch_logs=5, 
+    save_all_data=False
+):
     # switch to evaluate mode
     model.eval()
-    
+
+    if save_all_data:
+        full_data_root = os.path.join(save_root, "full_data")
+        if not os.path.exists(full_data_root):
+            os.makedirs(full_data_root)
+        
     n_timesteps = config.MODEL.EXTRA.N_HG_STACKS
     if config.MODEL.EXTRA.DOUBLE_STACK:
         n_timesteps *= 2
     accs = [AverageMeter() for _ in range(n_timesteps)]
-    
+    log_flops = True
     with torch.no_grad():
         for i, (x_data, target, target_weight, meta) in enumerate(val_loader):
             sys.stdout.write(f"\rBatch {i+1:,}/{len(val_loader):,}...")
@@ -215,28 +228,39 @@ def test(config, val_loader, val_dataset, model, threshold=0.5, save_root="", ma
         
             # Compute outputs
             with torch.no_grad():
-                outputs = model(x_data)
-        
-            # Measure accuracy
-            for acc, output in zip(accs, outputs):
-                _, avg_acc, cnt, pred = accuracy(
-                output.cpu().numpy(),
-                target.cpu().numpy(),
-                threshold=threshold
-                )
-                acc.update(avg_acc, cnt)
+                outputs = model(x_data, log_flops=log_flops)
+            total_flops = model.module.get_flops()
 
-            # Log data
-            if save_root and i < max_batch_logs:
-                log_outputs(x_data, target, outputs, meta, save_root)
+            if save_all_data:
+                save_path = os.path.join(save_root, f"batch_{i:04d}.pt")
+                torch.save({
+                    "outputs": outputs,
+                }, save_path)
+            
+            if not save_all_data:
+                # Measure accuracy
+                for acc, output in zip(accs, outputs):
+                    _, avg_acc, cnt, pred = accuracy(
+                        output.cpu().numpy(),
+                        target.cpu().numpy(),
+                        threshold=threshold,
+                    )
+                    acc.update(avg_acc, cnt)
 
+                # Log data
+                if save_root and i < max_batch_logs:
+                    log_outputs(x_data, target, outputs, meta, save_root)
+            log_flops = False
     print("\n")
-    for i, acc in enumerate(accs):
-        print(f"Stack={i}: {acc.avg * 100:0.3f}%")
-      
-    result = [acc.avg * 100 for acc in accs]
-    
-    return result
+    if save_all_data:
+        return None, None
+    else:
+        for i, acc in enumerate(accs):
+            print(f"Stack={i}: {acc.avg * 100:0.3f}%")
+        
+        result = [acc.avg * 100 for acc in accs]
+        
+        return result, total_flops
 
 
 # markdown format output
