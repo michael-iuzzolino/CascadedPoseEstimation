@@ -47,6 +47,53 @@ class IdentityMapping(nn.Module):
 
         return gated_identity
 
+        
+class VanillaResblock(nn.Module):
+    def __init__(self, in_channels, out_channels, **kwargs):
+        super(VanillaResblock, self).__init__()
+
+        self.conv1 = nn.Conv2d(
+            in_channels=in_channels,
+            out_channels=out_channels,
+            kernel_size=3,
+            stride=1,
+            padding=1,
+        )
+        self.conv2 = nn.Conv2d(
+            in_channels=out_channels,
+            out_channels=out_channels,
+            kernel_size=3,
+            stride=1,
+            padding=1,
+        )
+        self.identity_mapping = IdentityMapping(
+            in_channels=in_channels,
+            out_channels=out_channels,
+            mode=kwargs.get("identity_gating_mode", "standard"),
+        )
+
+        self._remap_output_dim = False
+        if in_channels != out_channels:
+            self._remap_output_dim = True
+            self._remap_conv = nn.Conv2d(in_channels, out_channels, kernel_size=1)
+
+        self.bn1 = nn.BatchNorm2d(out_channels)
+        self.bn2 = nn.BatchNorm2d(out_channels)
+        self.relu = nn.ReLU()
+
+    def forward(self, x):
+        out = self.relu(self.bn1(self.conv1(x)))
+        residual = self.bn2(self.conv2(out))
+        identity = self.identity_mapping(x)
+
+        # Identity + Residual
+        out = residual + identity
+
+        if self._remap_output_dim:
+            out = self._remap_conv(out)
+
+        return out
+
 
 class MultiScaleResblock(nn.Module):
     def __init__(self, in_channels, out_channels, **kwargs):
@@ -106,7 +153,7 @@ class MultiScaleResblock(nn.Module):
 
 
 class HeadLayer(nn.Module):
-    def __init__(self, in_channels, hidden_channels=64, kernel_size=7, **kwargs):
+    def __init__(self, in_channels, resblock, hidden_channels=64, kernel_size=7, **kwargs):
         super(HeadLayer, self).__init__()
         self.conv = nn.Conv2d(
             3,
@@ -120,17 +167,17 @@ class HeadLayer(nn.Module):
         self.relu = nn.ReLU()
 
         self.pool = nn.MaxPool2d((2,2))
-        self.res_1 = MultiScaleResblock(
+        self.res_1 = resblock(
             in_channels=hidden_channels,
             out_channels=hidden_channels,
             **kwargs,
         )
-        self.res_2 = MultiScaleResblock(
+        self.res_2 = resblock(
             in_channels=hidden_channels,
             out_channels=hidden_channels,
             **kwargs,
         )
-        self.res_3 = MultiScaleResblock(
+        self.res_3 = resblock(
             in_channels=hidden_channels,
             out_channels=in_channels,
             **kwargs,
@@ -178,6 +225,7 @@ class MergeDecoder(nn.Module):
 class HourGlass(nn.Module):
     def __init__(
         self,
+        resblock,
         stack_i,
         in_channels,
         hidden_channels=None,
@@ -212,7 +260,7 @@ class HourGlass(nn.Module):
 
         # Encoder
         self.encode_1 = nn.Sequential(
-            MultiScaleResblock(
+            resblock(
                 in_channels=in_channels,
                 out_channels=in_channels,
                 **kwargs
@@ -222,7 +270,7 @@ class HourGlass(nn.Module):
         )
 
         self.encode_2 = nn.Sequential(
-            MultiScaleResblock(
+            resblock(
                 in_channels=in_channels,
                 out_channels=in_channels,
                 **kwargs
@@ -232,7 +280,7 @@ class HourGlass(nn.Module):
         )
 
         self.encode_3 = nn.Sequential(
-            MultiScaleResblock(
+            resblock(
                 in_channels=in_channels,
                 out_channels=in_channels,
                 **kwargs
@@ -242,7 +290,7 @@ class HourGlass(nn.Module):
         )
 
         self.encode_4 = nn.Sequential(
-            MultiScaleResblock(
+            resblock(
                 in_channels=in_channels,
                 out_channels=in_channels,
                 **kwargs
@@ -281,7 +329,7 @@ class HourGlass(nn.Module):
 
         # Feature map
         self.feature_map = nn.Sequential(
-          MultiScaleResblock(
+          resblock(
               in_channels=in_channels,
               out_channels=in_channels,
               **kwargs,
@@ -334,6 +382,7 @@ class HourGlass(nn.Module):
 class PoseNet(nn.Module):
     def __init__(
       self,
+      resblock,
       n_stacks=1,
       n_features=128,
       n_joints=16,
@@ -351,16 +400,18 @@ class PoseNet(nn.Module):
         # Head layer
         self.head_layer = HeadLayer(
             in_channels=n_features,
+            resblock=resblock,
             hidden_channels=64,
             **kwargs,
         )
 
         # Setup hourglasses
-        self._setup_hgs()
+        self._setup_hgs(resblock)
 
-    def _setup_hgs(self):
+    def _setup_hgs(self, resblock):
         if self._kwargs.get("share_weights", False):
             hg_model = HourGlass(
+                resblock=resblock,
                 stack_i=0,
                 in_channels=self._n_features,
                 merge_mode=self._merge_mode,
@@ -371,6 +422,7 @@ class PoseNet(nn.Module):
         else:
             self.hgs = nn.ModuleList([
                 HourGlass(
+                    resblock=resblock,
                     stack_i=i,
                     in_channels=self._n_features,
                     merge_mode=self._merge_mode,
@@ -408,7 +460,14 @@ def get_pose_net(cfg):
         share_weights = cfg.MODEL.EXTRA.SHARE_HG_WEIGHTS
     else:
         share_weights = False
+    
+    if cfg.MODEL.EXTRA.RESBLOCK_TYPE == "multiscale":
+        resblock = MultiScaleResblock
+    else:
+        resblock = VanillaResblock
+
     model = PoseNet(
+        resblock=resblock,
         n_stacks=n_hg_stacks,
         n_features=cfg.MODEL.NUM_CHANNELS,
         n_joints=cfg.MODEL.NUM_JOINTS,
