@@ -141,7 +141,7 @@ def main():
     output_dir = create_experiment_directory(
         config, 
         args.cfg, 
-        distillation="distillation" in args.cfg,
+        distillation="__distill" in args.cfg,
         make_dir=False,
     )
     basename = os.path.basename(args.cfg)

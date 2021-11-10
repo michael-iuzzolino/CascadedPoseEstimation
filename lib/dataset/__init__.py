@@ -11,5 +11,7 @@ from __future__ import print_function
 from .mpii import MPIIDataset as mpii
 try:
   from .coco import COCODataset as coco
-except:
+except Exception as e:
   print("Could not find coco.")
+  print("Exception:")
+  print(e)

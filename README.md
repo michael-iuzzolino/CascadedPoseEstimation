@@ -1,14 +1,12 @@
 # Train
 
-# New Tied Weights
-export CUDA_VISIBLE_DEVICES=0; python pose_estimation/distillation_train.py \
-    --cfg experiments/mpii/hourglass/hourglass_4__td_0__distill_td_1.yaml
-    
-export CUDA_VISIBLE_DEVICES=0; python pose_estimation/distillation_train.py \
-    --cfg experiments/mpii/hourglass/hourglass_4__td_0_5__distill_td_1.yaml
+# Teacher models
+export CUDA_VISIBLE_DEVICES=0; python pose_estimation/train.py \
+    --cfg experiments/mpii/hourglass_8__teacher.yaml
 
-export CUDA_VISIBLE_DEVICES=0; python pose_estimation/distillation_train.py \
-    --cfg experiments/mpii/hourglass/hourglass_4__td_1__distill_td_1.yaml
+
+export CUDA_VISIBLE_DEVICES=0; python pose_estimation/train.py \
+    --cfg experiments/coco/hourglass_8__teacher.yaml
 
 
 # New 8X tied Weights (targets)

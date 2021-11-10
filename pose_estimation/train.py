@@ -80,6 +80,7 @@ def main():
     output_dir = create_experiment_directory(
         config,
         args.cfg,
+        distillation=False,
     )
 
     print("Initializing model...")

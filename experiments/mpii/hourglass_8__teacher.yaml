@@ -29,7 +29,7 @@ MODEL:
   NUM_JOINTS: 16
   EXTRA:
     SHARE_HG_WEIGHTS: false
-    RESBLOCK_TYPE: "multiscale"  # multiscale, vanilla
+    RESBLOCK_TYPE: "multiscale"  # multiscale, vanilla (VANILLA IS BROKEN!!)
     TARGET_TYPE: gaussian
     SIGMA: 2
     HEATMAP_SIZE:
