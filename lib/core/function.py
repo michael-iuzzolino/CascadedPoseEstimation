@@ -31,8 +31,6 @@ def train(config, train_loader, model, criterion, optimizer, epoch, output_dir):
     data_time = AverageMeter()
     losses = AverageMeter()
     n_timesteps = config.MODEL.EXTRA.N_HG_STACKS
-    if config.MODEL.EXTRA.DOUBLE_STACK:
-        n_timesteps *= 2
     accs = [AverageMeter() for _ in range(n_timesteps)]
 
     # switch to train mode
@@ -93,8 +91,6 @@ def validate(config, val_loader, val_dataset, model, criterion, output_dir):
     losses = AverageMeter()
     
     n_timesteps = config.MODEL.EXTRA.N_HG_STACKS
-    if config.MODEL.EXTRA.DOUBLE_STACK:
-        n_timesteps *= 2
     accs = [AverageMeter() for _ in range(n_timesteps)]
 
     # switch to evaluate mode
@@ -197,8 +193,6 @@ def test(config, val_loader, val_dataset, model, threshold=0.5):
     model.eval()
     
     n_timesteps = config.MODEL.EXTRA.N_HG_STACKS
-    if config.MODEL.EXTRA.DOUBLE_STACK:
-        n_timesteps *= 2
     accs = [AverageMeter() for _ in range(n_timesteps)]
     
     with torch.no_grad():

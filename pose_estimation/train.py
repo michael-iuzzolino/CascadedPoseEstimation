@@ -24,7 +24,6 @@ import torchvision.transforms as transforms
 import _init_paths
 from core.config import config
 from core.config import update_config
-from core.config import update_dir
 from core.config import get_model_name
 from core.loss import TDLambda_JointsMSELoss
 from core.function import train
@@ -38,27 +37,27 @@ import models.pose_stacked_hg
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description='Train keypoints network')
+    parser = argparse.ArgumentParser(description="Train keypoints network")
     # general
-    parser.add_argument('--cfg',
-                        help='experiment configure file name',
+    parser.add_argument("--cfg",
+                        help="experiment configure file name",
                         required=True,
                         type=str)
 
-    args, rest = parser.parse_known_args()
+    args, _ = parser.parse_known_args()
     # update config
     update_config(args.cfg)
 
     # training
-    parser.add_argument('--frequent',
-                        help='frequency of logging',
+    parser.add_argument("--frequent",
+                        help="frequency of logging",
                         default=config.PRINT_FREQ,
                         type=int)
-    parser.add_argument('--gpus',
-                        help='gpus',
+    parser.add_argument("--gpus",
+                        help="gpus",
                         type=str)
-    parser.add_argument('--workers',
-                        help='num of dataloader workers',
+    parser.add_argument("--workers",
+                        help="num of dataloader workers",
                         type=int)
 
     args = parser.parse_args()
@@ -79,8 +78,8 @@ def main():
 
     print("Setting up output experimental directory")
     output_dir = create_experiment_directory(
-        config, 
-        args.cfg, 
+        config,
+        args.cfg,
     )
 
     print("Initializing model...")
@@ -90,39 +89,32 @@ def main():
     torch.backends.cudnn.enabled = config.CUDNN.ENABLED
 
     # Setup model
-    model = models.pose_stacked_hg.get_pose_net(config, is_train=True)
+    model = models.pose_stacked_hg.get_pose_net(config)
 
     n_params = count_parameters(model)
-    print(f"# model params: {n_params:,}")
     with open(os.path.join(output_dir, "n_params.txt"), "w") as outfile:
         outfile.write(f"# Params: {n_params:,}")
-    exit()
 
     # copy model file
     print("Copying model file...")
     this_dir = os.path.dirname(__file__)
     shutil.copy2(
-        os.path.join(this_dir, '../lib/models', config.MODEL.NAME + '.py'),
+        os.path.join(this_dir, "../lib/models", config.MODEL.NAME + ".py"),
         output_dir
     )
 
-    dump_input = torch.rand((config.TRAIN.BATCH_SIZE,
-                            3,
-                            config.MODEL.IMAGE_SIZE[1],
-                            config.MODEL.IMAGE_SIZE[0]))
-
     # Setup parallel model
     print("Parallelizing model...")
-    gpus = [int(i) for i in config.GPUS.split(',')]
+    gpus = [int(i) for i in config.GPUS.split(",")]
     print(f"GPUS: {gpus}")
     model = torch.nn.DataParallel(model, device_ids=gpus).cuda()
 
     print("Setting up criterion, optimizer, and LR scheduling...")
     # define loss function (criterion) and optimizer
     criterion = TDLambda_JointsMSELoss(
-        use_target_weight=config.LOSS.USE_TARGET_WEIGHT, 
-        lambda_val=config.LOSS.TD_LAMBDA, 
-        normalize_loss=config.LOSS.NORMALIZE
+        use_target_weight=config.LOSS.USE_TARGET_WEIGHT,
+        lambda_val=config.LOSS.TD_LAMBDA,
+        normalize_loss=config.LOSS.NORMALIZE,
     ).cuda()
 
     optimizer = get_optimizer(config, model)
@@ -135,9 +127,9 @@ def main():
     # Data loading code
     normalize = transforms.Normalize(
         mean=[0.485, 0.456, 0.406],
-        std=[0.229, 0.224, 0.225]
+        std=[0.229, 0.224, 0.225],
     )
-    train_dataset = eval('dataset.'+config.DATASET.DATASET)(
+    train_dataset = eval("dataset."+config.DATASET.DATASET)(
         config,
         config.DATASET.ROOT,
         config.DATASET.TRAIN_SET,
@@ -147,7 +139,7 @@ def main():
             normalize,
         ])
     )
-    valid_dataset = eval('dataset.'+config.DATASET.DATASET)(
+    valid_dataset = eval("dataset."+config.DATASET.DATASET)(
         config,
         config.DATASET.ROOT,
         config.DATASET.TEST_SET,
@@ -164,14 +156,14 @@ def main():
         batch_size=config.TRAIN.BATCH_SIZE*len(gpus),
         shuffle=config.TRAIN.SHUFFLE,
         num_workers=config.WORKERS,
-        pin_memory=True
+        pin_memory=True,
     )
     valid_loader = torch.utils.data.DataLoader(
         valid_dataset,
         batch_size=config.TEST.BATCH_SIZE*len(gpus),
         shuffle=False,
         num_workers=config.WORKERS,
-        pin_memory=True
+        pin_memory=True,
     )
 
     print("Training model...")
@@ -180,11 +172,11 @@ def main():
     for epoch_i in range(config.TRAIN.BEGIN_EPOCH, config.TRAIN.END_EPOCH):
         # train for one epoch
         train(
-            config, 
-            train_loader, 
-            model, 
-            criterion, 
-            optimizer, 
+            config,
+            train_loader,
+            model,
+            criterion,
+            optimizer,
             epoch_i,
             output_dir,
         )
@@ -193,11 +185,11 @@ def main():
 
         # evaluate on validation set
         perf_indicator = validate(
-            config, 
-            valid_loader, 
-            valid_dataset, 
+            config,
+            valid_loader,
+            valid_dataset,
             model,
-            criterion, 
+            criterion,
             output_dir,
         )
 
@@ -208,29 +200,29 @@ def main():
             best_model = False
 
         save_dict = {
-            'epoch_i': epoch_i + 1,
-            'model': get_model_name(config),
-            'state_dict': model.module.state_dict(),
-            'perf': perf_indicator,
-            'optimizer': optimizer.state_dict(),
+            "epoch_i": epoch_i + 1,
+            "model": get_model_name(config),
+            "state_dict": model.module.state_dict(),
+            "perf": perf_indicator,
+            "optimizer": optimizer.state_dict(),
         }
         save_checkpoint(save_dict, best_model, output_dir)
 
     # Final ckpt save
     save_dict = {
-        'epoch_i': epoch_i + 1,
-        'model': get_model_name(config),
-        'state_dict': model.module.state_dict(),
-        'perf': perf_indicator,
-        'optimizer': optimizer.state_dict(),
+        "epoch_i": epoch_i + 1,
+        "model": get_model_name(config),
+        "state_dict": model.module.state_dict(),
+        "perf": perf_indicator,
+        "optimizer": optimizer.state_dict(),
     }
     save_checkpoint(
-        save_dict, 
-        False, 
-        output_dir, 
-        filename='final_state.pth.tar'
+        save_dict,
+        False,
+        output_dir,
+        filename="final_state.pth.tar",
     )
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

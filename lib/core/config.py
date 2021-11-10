@@ -32,45 +32,23 @@ config.CUDNN.BENCHMARK = True
 config.CUDNN.DETERMINISTIC = False
 config.CUDNN.ENABLED = True
 
-# pose_resnet related params
-POSE_RESNET = edict()
-POSE_RESNET.CASCADED = False
-POSE_RESNET.CASCADED_SCHEME = "parallel"  # parallel, serial
-POSE_RESNET.NUM_LAYERS = 50
-POSE_RESNET.DECONV_WITH_BIAS = False
-POSE_RESNET.NUM_DECONV_LAYERS = 3
-POSE_RESNET.NUM_DECONV_FILTERS = [256, 256, 256]
-POSE_RESNET.NUM_DECONV_KERNELS = [4, 4, 4]
-POSE_RESNET.FINAL_CONV_KERNEL = 1
-POSE_RESNET.TARGET_TYPE = "gaussian"
-POSE_RESNET.HEATMAP_SIZE = [64, 64]  # width * height, ex: 24 * 32
-POSE_RESNET.SIGMA = 2
-
-# pose_resnet related params
-POSE_UNET = edict()
-# CASCADED_UNET.NUM_LAYERS = 50
-
 POSE_HG = edict()
 POSE_HG.MERGE_MODE = "concat"
-POSE_HG.CASCADED = False
 
 MODEL_EXTRAS = {
-    "pose_resnet": POSE_RESNET,
-    "cascaded_pose_resnet": POSE_RESNET,
-    "unet": POSE_UNET,
     "hourglass": POSE_HG,
 }
 
 # common params for NETWORK
 config.MODEL = edict()
 config.MODEL.MERGE_MODE = "concat"
-config.MODEL.CASCADED = False
-config.MODEL.NAME = "pose_resnet"  # "pose_resnet", "unet"
+config.MODEL.IDENTITY_GATING_MODE = "standard"
+config.MODEL.NAME = "hourglass"
 config.MODEL.INIT_WEIGHTS = False
 config.MODEL.PRETRAINED = ""
 config.MODEL.TEACHER_CFG = ""
 config.MODEL.NUM_JOINTS = 16
-config.MODEL.NUM_CHANNELS = 144  # 144, 256
+config.MODEL.NUM_CHANNELS = 256  # 144, 256
 config.MODEL.IMAGE_SIZE = [256, 256]  # width * height, ex: 192 * 256
 config.MODEL.EXTRA = MODEL_EXTRAS[config.MODEL.NAME]
 
@@ -235,11 +213,6 @@ def get_model_name(cfg):
         name = f"hourglass_x{extra.N_HG_STACKS}"
     else:
         raise ValueError(f"Unkown model: {name}")
-    
-    if cfg.MODEL.CASCADED:
-        suffix = f"cascaded_td({cfg.LOSS.TD_LAMBDA})"
-        suffix += f"__{extra.CASCADED_SCHEME}"
-        name = f"{name}__{suffix}"
     full_name = f"{name}"
     return name, full_name
 

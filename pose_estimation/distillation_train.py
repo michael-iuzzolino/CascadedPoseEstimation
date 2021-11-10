@@ -103,7 +103,7 @@ def setup_teacher(config, args, gpus):
 
     # Ensure shared weights turned off
     config.MODEL.EXTRA.SHARE_HG_WEIGHTS = False
-    teacher_model = models.pose_stacked_hg.get_pose_net(config, is_train=False)
+    teacher_model = models.pose_stacked_hg.get_pose_net(config)
     teacher_output_dir = create_experiment_directory(
         config, 
         args.cfg, 
@@ -142,7 +142,7 @@ def main():
     torch.backends.cudnn.enabled = config.CUDNN.ENABLED
 
     # Setup model
-    model = models.pose_stacked_hg.get_pose_net(config, is_train=True)
+    model = models.pose_stacked_hg.get_pose_net(config)
     
     # copy model file
     print("Copying model file...")

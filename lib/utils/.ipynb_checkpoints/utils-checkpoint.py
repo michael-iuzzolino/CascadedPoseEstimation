@@ -51,8 +51,6 @@ def create_experiment_directory(cfg, cfg_name, distillation=False, make_dir=True
         model_str = model_str + f"__TD_{teacher_td}"
 #     if cfg.MODEL.EXTRA.SHARE_HG_WEIGHTS:
 #         model_str = model_str + "__shared_weights"
-    if cfg.MODEL.EXTRA.DOUBLE_STACK:
-        model_str = model_str + "__double"
 
     final_output_dir = root_output_dir / dataset / model_str
     if make_dir:

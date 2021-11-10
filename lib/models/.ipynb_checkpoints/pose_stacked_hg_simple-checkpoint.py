@@ -80,7 +80,7 @@ class MultiScaleResblock(nn.Module):
     self.identity_mapping = IdentityMapping(
         in_channels=in_channels,
         out_channels=in_channels,
-        mode=kwargs.get("identity_gating_mode", "per_channel"),
+        mode=kwargs.get("identity_gating_mode", "standard"),
     )
     
     self._remap_output_dim = False
@@ -424,7 +424,7 @@ def get_pose_net(cfg, is_train, **kwargs):
       inp_dim=cfg.MODEL.NUM_CHANNELS,
       n_joints=cfg.MODEL.NUM_JOINTS,
       merge_mode=cfg.MODEL.MERGE_MODE,
-      identity_gating_mode="per_channel",
+      identity_gating_mode="standard",
       share_weights=share_weights,
   )
 

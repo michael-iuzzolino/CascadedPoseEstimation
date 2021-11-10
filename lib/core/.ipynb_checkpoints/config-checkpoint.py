@@ -34,8 +34,6 @@ config.CUDNN.ENABLED = True
 
 # pose_resnet related params
 POSE_RESNET = edict()
-POSE_RESNET.CASCADED = False
-POSE_RESNET.CASCADED_SCHEME = "parallel"  # parallel, serial
 POSE_RESNET.NUM_LAYERS = 50
 POSE_RESNET.DECONV_WITH_BIAS = False
 POSE_RESNET.NUM_DECONV_LAYERS = 3
@@ -48,15 +46,12 @@ POSE_RESNET.SIGMA = 2
 
 # pose_resnet related params
 POSE_UNET = edict()
-# CASCADED_UNET.NUM_LAYERS = 50
 
 POSE_HG = edict()
 POSE_HG.MERGE_MODE = "concat"
-POSE_HG.CASCADED = False
 
 MODEL_EXTRAS = {
     "pose_resnet": POSE_RESNET,
-    "cascaded_pose_resnet": POSE_RESNET,
     "unet": POSE_UNET,
     "hourglass": POSE_HG,
 }
@@ -64,7 +59,6 @@ MODEL_EXTRAS = {
 # common params for NETWORK
 config.MODEL = edict()
 config.MODEL.MERGE_MODE = "concat"
-config.MODEL.CASCADED = False
 config.MODEL.NAME = "pose_resnet"  # "pose_resnet", "unet"
 config.MODEL.INIT_WEIGHTS = False
 config.MODEL.PRETRAINED = ""
@@ -236,10 +230,6 @@ def get_model_name(cfg):
     else:
         raise ValueError(f"Unkown model: {name}")
     
-    if cfg.MODEL.CASCADED:
-        suffix = f"cascaded_td({cfg.LOSS.TD_LAMBDA})"
-        suffix += f"__{extra.CASCADED_SCHEME}"
-        name = f"{name}__{suffix}"
     full_name = f"{name}"
     return name, full_name
 

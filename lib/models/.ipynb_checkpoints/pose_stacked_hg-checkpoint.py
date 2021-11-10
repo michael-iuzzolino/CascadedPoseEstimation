@@ -77,7 +77,7 @@ class MultiScaleResblock(nn.Module):
     self.identity_mapping = IdentityMapping(
         in_channels=in_channels,
         out_channels=in_channels,
-        mode=kwargs.get("identity_gating_mode", "per_channel"),
+        mode=kwargs.get("identity_gating_mode", "standard"),
     )
     
     self._remap_output_dim = False
@@ -301,8 +301,6 @@ class HourGlass(nn.Module):
 class PoseNet(nn.Module):
   def __init__(self, 
                n_stacks=1, 
-               double_stack=False,
-               n_double_features=256,
                n_features=128, 
                n_joints=16, 
                merge_mode="concat", 
@@ -310,8 +308,6 @@ class PoseNet(nn.Module):
     super(PoseNet, self).__init__()
     self._n_stacks = n_stacks
     self._n_features = n_features
-    self._n_double_features = n_double_features
-    self._double_stack = double_stack
     self._merge_mode = merge_mode
     self._kwargs = kwargs
     self.relu = nn.ReLU()
@@ -321,8 +317,6 @@ class PoseNet(nn.Module):
     
     # Setup hourglasses
     self._setup_hgs()
-    if self._double_stack:
-      self._n_stacks *= 2
     
     # Feature maps
     self.feature_maps = nn.ModuleList([
@@ -355,66 +349,23 @@ class PoseNet(nn.Module):
     
   def _setup_hgs(self):
     if self._kwargs.get("share_weights", False):
-      if self._double_stack:
-        small_hg_model = HourGlass(
-            stack_i=0, 
-            in_channels=self._n_features, 
-            merge_mode=self._merge_mode, 
-            **self._kwargs
-        )
-        first_stack = [small_hg_model for i in range(self._n_stacks)]
-        large_hg_model = HourGlass(
-            stack_i=1, 
-            in_channels=self._n_double_features, 
-            merge_mode=self._merge_mode, 
-            **self._kwargs
-        )
-        second_stack = [large_hg_model for i in range(self._n_stacks)]
-        self.hgs = nn.ModuleList(first_stack + second_stack)
-      else:
-        hg_model = HourGlass(
-            stack_i=0, 
-            in_channels=self._n_features, 
-            merge_mode=self._merge_mode, 
-            **self._kwargs
-        )
-        self.hgs = nn.ModuleList([hg_model for i in range(self._n_stacks)])
+      hg_model = HourGlass(
+          stack_i=0, 
+          in_channels=self._n_features, 
+          merge_mode=self._merge_mode, 
+          **self._kwargs
+      )
+      self.hgs = nn.ModuleList([hg_model for i in range(self._n_stacks)])
     else:
-      if self._double_stack:
-        first_stack = [
-            HourGlass(
-                stack_i=i, 
-                in_channels=self._n_features,
-                merge_mode=self._merge_mode, 
-                **self._kwargs
-            )
-          for i in range(self._n_stacks)
-        ]
-        second_stack = [
-            HourGlass(
-                stack_i=i+(self._n_stacks), 
-                in_channels=self._n_features, 
-                hidden_channels=self._n_double_features,
-                merge_mode=self._merge_mode,
-                **self._kwargs
-            )
-          for i in range(self._n_stacks)
-        ]
-        module_list = [
-            *first_stack, 
-            *second_stack, 
-        ]
-        self.hgs = nn.ModuleList(module_list)
-      else:
-        self.hgs = nn.ModuleList([
-            HourGlass(
-                stack_i=i, 
-                in_channels=self._n_features, 
-                merge_mode=self._merge_mode, 
-                **self._kwargs
-            )
-          for i in range(self._n_stacks)
-        ])
+      self.hgs = nn.ModuleList([
+          HourGlass(
+              stack_i=i, 
+              in_channels=self._n_features, 
+              merge_mode=self._merge_mode, 
+              **self._kwargs
+          )
+        for i in range(self._n_stacks)
+      ])
   
   def forward(self, x):
     x = self.head_layer(x)
@@ -441,12 +392,10 @@ def get_pose_net(cfg, is_train, **kwargs):
     share_weights = False
   model = PoseNet(
       n_stacks=n_hg_stacks,
-      double_stack=cfg.MODEL.EXTRA.DOUBLE_STACK,
-      n_double_features=cfg.MODEL.EXTRA.NUM_DOUBLE_CHANNELS,
       n_features=cfg.MODEL.NUM_CHANNELS,
       n_joints=cfg.MODEL.NUM_JOINTS,
       merge_mode=cfg.MODEL.MERGE_MODE,
-      identity_gating_mode="per_channel",
+      identity_gating_mode="standard",
       share_weights=share_weights,
   )
 
