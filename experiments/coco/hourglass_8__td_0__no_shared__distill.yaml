@@ -20,8 +20,8 @@ MODEL:
   TEACHER_CFG: "experiments/coco/hourglass_8__teacher.yaml"
   PRETRAINED: ""
   IMAGE_SIZE:
-  - 288
-  - 384
+  - 256
+  - 256
   NUM_CHANNELS: 256
   NUM_JOINTS: 17
   EXTRA:
@@ -30,8 +30,8 @@ MODEL:
     TARGET_TYPE: "gaussian"
     SIGMA: 3
     HEATMAP_SIZE:
-    - 72
-    - 96
+    - 64
+    - 64
     N_HG_STACKS: 8
 LOSS:
   USE_TARGET_WEIGHT: true
