@@ -28,7 +28,7 @@ MODEL:
   NUM_CHANNELS: 64  # 144, 256
   NUM_JOINTS: 16
   EXTRA:
-    SHARE_HG_WEIGHTS: true
+    SHARE_HG_WEIGHTS: false
     RESBLOCK_TYPE: "multiscale"  # multiscale, vanilla
     TARGET_TYPE: gaussian
     SIGMA: 2
@@ -38,7 +38,7 @@ MODEL:
     N_HG_STACKS: 8
 LOSS:
   USE_TARGET_WEIGHT: true
-  TD_LAMBDA: 0.0
+  TD_LAMBDA: 0.5
   NORMALIZE: true
   DISTILLATION_ALPHA: 1.0
 TRAIN:

@@ -20,7 +20,7 @@ MODEL:
   NAME: pose_stacked_hg
   MERGE_MODE: "addition"  # concat, addition
   IDENTITY_GATING_MODE: "standard"  # standard, per_channel, single
-  TEACHER_CFG: ""
+  TEACHER_CFG: "experiments/mpii/hourglass_8__teacher.yaml"
   PRETRAINED: ""
   IMAGE_SIZE:
   - 256
@@ -38,7 +38,7 @@ MODEL:
     N_HG_STACKS: 8
 LOSS:
   USE_TARGET_WEIGHT: true
-  TD_LAMBDA: 0.0
+  TD_LAMBDA: 0.5
   NORMALIZE: true
   DISTILLATION_ALPHA: 1.0
 TRAIN:
