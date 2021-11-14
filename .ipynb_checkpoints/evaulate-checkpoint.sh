@@ -1,49 +1,10 @@
 #!/bin/bash
 
-CFG_ROOT="experiments/mpii/hourglass"
+CFG_ROOT="experiments/mpii"
 cfg_list=(
-#   "${CFG_ROOT}/hourglass_4__td_0.yaml"
-#   "${CFG_ROOT}/hourglass_4__td_0_25.yaml"
-#   "${CFG_ROOT}/hourglass_4__td_0_5.yaml"
-#   "${CFG_ROOT}/hourglass_4__td_0_9.yaml"
-#   "${CFG_ROOT}/hourglass_4__td_1.yaml"
-
-#   "${CFG_ROOT}/hourglass_4__td_0__double.yaml"
-#   "${CFG_ROOT}/hourglass_4__td_0_25__double.yaml"
-#   "${CFG_ROOT}/hourglass_4__td_0_5__double.yaml"
-#   "${CFG_ROOT}/hourglass_4__td_0_9__double.yaml"
-#   "${CFG_ROOT}/hourglass_4__td_1__double.yaml"
-
-#   "${CFG_ROOT}/hourglass_4__td_0__distill_td_0.yaml" 
-#   "${CFG_ROOT}/hourglass_4__td_0__distill_td_0_25.yaml"
-#   "${CFG_ROOT}/hourglass_4__td_0__distill_td_0_5.yaml" 
-#   "${CFG_ROOT}/hourglass_4__td_0__distill_td_0_9.yaml" 
-  "${CFG_ROOT}/hourglass_4__td_0__distill_td_1.yaml"
-
-#   "${CFG_ROOT}/hourglass_4__td_0_25__distill_td_0.yaml"
-#   "${CFG_ROOT}/hourglass_4__td_0_25__distill_td_0_25.yaml"
-#   "${CFG_ROOT}/hourglass_4__td_0_25__distill_td_0_5.yaml"
-#   "${CFG_ROOT}/hourglass_4__td_0_25__distill_td_0_9.yaml"
-#   "${CFG_ROOT}/hourglass_4__td_0_25__distill_td_1.yaml"
-
-#   "${CFG_ROOT}/hourglass_4__td_0_5__distill_td_0.yaml"  
-#   "${CFG_ROOT}/hourglass_4__td_0_5__distill_td_0_25.yaml"  
-#   "${CFG_ROOT}/hourglass_4__td_0_5__distill_td_0_5.yaml"  
-#   "${CFG_ROOT}/hourglass_4__td_0_5__distill_td_0_9.yaml"
-#   "${CFG_ROOT}/hourglass_4__td_0_5__distill_td_1.yaml"
-
-
-#   "${CFG_ROOT}/hourglass_4__td_0_9__distill_td_0.yaml"
-#   "${CFG_ROOT}/hourglass_4__td_0_9__distill_td_0_25.yaml"
-#   "${CFG_ROOT}/hourglass_4__td_0_9__distill_td_0_5.yaml"
-#   "${CFG_ROOT}/hourglass_4__td_0_9__distill_td_0_9.yaml"
-#   "${CFG_ROOT}/hourglass_4__td_0_9__distill_td_1.yaml"
-
-#   "${CFG_ROOT}/hourglass_4__td_1__distill_td_0.yaml"
-#   "${CFG_ROOT}/hourglass_4__td_1__distill_td_0_25.yaml"
-#   "${CFG_ROOT}/hourglass_4__td_1__distill_td_0_5.yaml"
-#   "${CFG_ROOT}/hourglass_4__td_1__distill_td_0_9.yaml"
-  "${CFG_ROOT}/hourglass_4__td_1__distill_td_1.yaml"
+  "${CFG_ROOT}/hourglass_8__teacher.yaml"
+  "${CFG_ROOT}/hourglass_8__td_1__no_shared__distill.yaml"
+  "${CFG_ROOT}/hourglass_8__td_1__no_shared__no_distill.yaml"
 )
 
 

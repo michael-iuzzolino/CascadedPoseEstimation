@@ -138,23 +138,34 @@ def main():
     args = parse_args()
     reset_config(config, args)
     
-    output_dir = create_experiment_directory(
+    output_dir_src = create_experiment_directory(
         config, 
         args.cfg, 
-        distillation="distillation" in args.cfg,
+        distillation="__distill" in args.cfg,
         make_dir=False,
     )
     basename = os.path.basename(args.cfg)
-    if "distill" in basename:
-      teacher_td = basename.split("__distill")[1].split(".")[0].split("td_")[1]
-      if "_" in teacher_td:
-        teacher_td = teacher_td.replace("_", ".")
-      teacher_td = float(teacher_td)
-      output_dir = f"{output_dir}__distill__TD_{teacher_td}"
-
+    arch_size_base = basename.split("__")[0]
+    if "teacher" in basename:
+      # TeacherTD with standard loss
+      output_dir = f"{arch_size_base}__teacher"
+    elif "no_distill" in basename:
+      # StudentTD with distillation loss
+      student_td = float(basename.split("td_")[1].split("__")[0])
+      if "no_shared" in basename:
+        output_dir = f"{arch_size_base}__standard__StudentTD({student_td})_untied"
+      else:
+        output_dir = f"{arch_size_base}__standard__StudentTD({student_td})_tied"  
+    else: 
+      # StudentTD with distillation loss
+      student_td = float(basename.split("td_")[1].split("__")[0])
+      if "no_shared" in basename:
+        output_dir = f"{arch_size_base}__distill__StudentTD({student_td})_untied"
+      else:
+        output_dir = f"{arch_size_base}__distill__StudentTD({student_td})_tied"
+    
     # Setup output dir
-    output_dir_tmp = os.path.sep.join(output_dir.split(os.path.sep)[1:])
-    final_result_root = os.path.join(args.result_root, output_dir_tmp)
+    final_result_root = os.path.join(args.result_root, output_dir)
     if not os.path.exists(final_result_root):
       os.makedirs(final_result_root)
       
@@ -170,10 +181,10 @@ def main():
     torch.backends.cudnn.enabled = config.CUDNN.ENABLED
     
     # Setup model
-    model = models.pose_stacked_hg.get_pose_net(config, is_train=False)
+    model = models.pose_stacked_hg.get_pose_net(config)
       
     # Load state dict
-    state_dict = get_state_dict(output_dir, 
+    state_dict = get_state_dict(output_dir_src, 
                                 config, 
                                 use_best=args.load_best_ckpt)
     
