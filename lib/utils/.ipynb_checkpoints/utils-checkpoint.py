@@ -34,24 +34,30 @@ def create_experiment_directory(cfg, cfg_name, distillation=False, make_dir=True
 
     dataset = get_dataset_name(cfg)
     model, _ = get_model_name(cfg)
-    small = "small" in cfg_name
 
     cfg_name = os.path.basename(cfg_name).split('.')[0]
 
     # final_output_dir = os.path.join(root_output_dir, dataset, model, cfg_name)
     model_str = model + f"__TD_{cfg.LOSS.TD_LAMBDA}"
-    if small:
-        model_str = model_str + "__small"
-    if distillation:
-        model_str = model_str + "__distill"
-        teacher_td = cfg.MODEL.TEACHER_CFG.split("td_")[1].split("__")[0]
-        if "_" in teacher_td:
-          teacher_td = teacher_td.replace("_", ".")
-        teacher_td = float(teacher_td)
-        model_str = model_str + f"__TD_{teacher_td}"
-#     if cfg.MODEL.EXTRA.SHARE_HG_WEIGHTS:
-#         model_str = model_str + "__shared_weights"
-
+    if "teacher" in cfg_name:
+        model_str = model_str + "__teacher"
+    else:
+        if "__shared" in cfg_name and "teacher":
+            model_str = model_str + f"__shared"
+        else:
+            model_str = model_str + f"__no_shared"
+        if distillation:
+            model_str = model_str + "__distill"
+            if "__td_" in cfg.MODEL.TEACHER_CFG:
+                teacher_td = cfg.MODEL.TEACHER_CFG.split("td_")[1].split("__")[0]
+                if "_" in teacher_td:
+                    teacher_td = teacher_td.replace("_", ".")
+                    teacher_td = float(teacher_td)
+            else:
+                teacher_td = 1.0
+            model_str = model_str + f"__TD_{teacher_td}"
+    
+    model_str = model_str + f"__alpha_{cfg.LOSS.DISTILLATION_ALPHA}"
     final_output_dir = root_output_dir / dataset / model_str
     if make_dir:
         print('=> creating {}'.format(final_output_dir))
@@ -117,3 +123,7 @@ def save_checkpoint(save_dict, is_best, output_dir, filename='checkpoint.pth.tar
     best_ckpt_path = os.path.join(output_dir, 'model_best.pth.tar')
     if is_best:
         torch.save(save_dict, best_ckpt_path)
+
+
+def count_parameters(model):
+    return sum(p.numel() for p in model.parameters() if p.requires_grad)

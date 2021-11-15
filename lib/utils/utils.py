@@ -56,6 +56,8 @@ def create_experiment_directory(cfg, cfg_name, distillation=False, make_dir=True
             else:
                 teacher_td = 1.0
             model_str = model_str + f"__TD_{teacher_td}"
+    
+    model_str = model_str + f"__alpha_{cfg.LOSS.DISTILLATION_ALPHA}"
     final_output_dir = root_output_dir / dataset / model_str
     if make_dir:
         print('=> creating {}'.format(final_output_dir))
