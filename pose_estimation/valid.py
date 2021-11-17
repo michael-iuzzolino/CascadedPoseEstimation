@@ -164,6 +164,10 @@ def main():
       else:
         output_dir = f"{arch_size_base}__distill__StudentTD({student_td})_tied"
     
+    if "alpha" in basename:
+      alpha_val = float(basename.split("__alpha_")[1].split(".yaml")[0].replace("_", "."))
+      output_dir = f"{output_dir}__alpha_{alpha_val}"
+    
     # Setup output dir
     final_result_root = os.path.join(args.result_root, output_dir)
     if not os.path.exists(final_result_root):
