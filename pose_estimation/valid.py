@@ -56,6 +56,10 @@ def parse_args():
                         help='Max # of batches to save data from',
                         default=5,
                         type=int)
+    parser.add_argument('--dataset_key',
+                        help='dataset key: valid, test',
+                        default="valid",
+                        type=str)
     parser.add_argument('--gpus',
                         help='gpus',
                         type=str)
@@ -178,6 +182,8 @@ def main():
     
     # Save output save root
     save_root = final_result_root.replace("/hdd/", "/hdd3/")
+    save_root = os.path.join(save_root, args.dataset_key)
+    
     if not os.path.exists(save_root):
       os.makedirs(save_root)
 
@@ -196,9 +202,11 @@ def main():
     model = models.pose_stacked_hg.get_pose_net(config, is_train=False)
       
     # Load state dict
-    state_dict = get_state_dict(output_dir, 
-                                config, 
-                                use_best=args.load_best_ckpt)
+    state_dict = get_state_dict(
+      output_dir, 
+      config, 
+      use_best=args.load_best_ckpt
+    )
     
     # Load previous model
     model.load_state_dict(state_dict)
@@ -207,11 +215,13 @@ def main():
     model = torch.nn.DataParallel(model, device_ids=gpus).cuda()
 
     # Data loading code
-    normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                                     std=[0.229, 0.224, 0.225])
+    normalize = transforms.Normalize(
+      mean=[0.485, 0.456, 0.406],
+      std=[0.229, 0.224, 0.225],
+    )
     valid_dataset = eval('dataset.'+config.DATASET.DATASET)(
         config,
-        config.DATASET.ROOT,
+        args.dataset_key,
         config.DATASET.TEST_SET,
         False,
         transforms.Compose([
@@ -221,7 +231,7 @@ def main():
     )
     valid_loader = torch.utils.data.DataLoader(
         valid_dataset,
-        batch_size=config.TEST.BATCH_SIZE*len(gpus),
+        batch_size=config.TEST.BATCH_SIZE * len(gpus),
         shuffle=False,
         num_workers=config.WORKERS,
         pin_memory=True

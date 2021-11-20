@@ -2,6 +2,7 @@
 
 CFG_ROOT="experiments/mpii/hourglass"
 MAX_BATCH_LOGS=2
+DATASET_KEY="test"
 
 THRESHOLD_VALS=( 0.5 )
 cfg_list=(
@@ -43,6 +44,7 @@ do
         cmd+=( --cfg $cfg )
         cmd+=( --force_overwrite )
         cmd+=( --threshold $THRESHOLD_VAL )
+        cmd+=( --dataset_key $DATASET_KEY )
         cmd+=( --load_best_ckpt )
     #     cmd+=( --vis_output_only )
         cmd+=( --save_all_data )
