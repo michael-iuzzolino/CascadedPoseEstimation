@@ -90,7 +90,7 @@ def main():
     torch.backends.cudnn.enabled = config.CUDNN.ENABLED
 
     # Setup model
-    model = models.pose_stacked_hg.get_pose_net(config, is_train=True)
+    model = models.pose_stacked_hg.get_pose_net(config)
 
     n_params = count_parameters(model)
     print(f"# model params: {n_params:,}")

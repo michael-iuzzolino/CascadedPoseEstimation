@@ -19,6 +19,7 @@ DATASET:
 MODEL:
   NAME: pose_stacked_hg
   MERGE_MODE: "concat"  # concat, addition
+  TEACHER_CFG: "experiments/mpii/hourglass/hourglass_4__td_1__double.yaml"
   CASCADED: False
   PRETRAINED: '' #'models/pytorch/imagenet/resnet50-19c8e357.pth'
   IMAGE_SIZE:
@@ -30,22 +31,23 @@ MODEL:
     DOUBLE_STACK: false
     NUM_DOUBLE_CHANNELS: 144  # 144, 256
     SHARE_HG_WEIGHTS: true
+    SINGLE_HEAD: true
     TARGET_TYPE: gaussian
     SIGMA: 2
     HEATMAP_SIZE:
     - 64
     - 64
-    N_HG_STACKS: 4
+    N_HG_STACKS: 8
 LOSS:
   USE_TARGET_WEIGHT: true
-  TD_LAMBDA: 0.0
+  TD_LAMBDA: 1.0
   NORMALIZE: true
   DISTILLATION_ALPHA: 1.0
 TRAIN:
   BATCH_SIZE: 8
   SHUFFLE: true
   BEGIN_EPOCH: 0
-  END_EPOCH: 140
+  END_EPOCH: 80
   RESUME: false
   OPTIMIZER: rmsprop  # adam, rmsprop
   LR: 0.00025  # 0.001

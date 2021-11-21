@@ -100,14 +100,18 @@ def setup_teacher(config, args, gpus):
     # "experiments/mpii/hourglass/hourglass_4__td_1__double.yaml"
     args.cfg = config.MODEL.TEACHER_CFG  
     update_config(args.cfg)
-    teacher_model = models.pose_stacked_hg.get_pose_net(config, is_train=False)
+
+    # Ensure shared weights turned off
+    config.MODEL.EXTRA.SHARE_HG_WEIGHTS = False
+    teacher_model = models.pose_stacked_hg.get_pose_net(config)
     teacher_output_dir = create_experiment_directory(
         config, 
         args.cfg, 
         distillation=False,
         make_dir=False,
     )
-    
+    if "untied_weights" in teacher_output_dir:
+        teacher_output_dir = teacher_output_dir.replace("__untied_weights", "")
     # Load state dict
     state_dict = get_state_dict(teacher_output_dir, config, use_best=True)
 
@@ -139,7 +143,7 @@ def main():
     torch.backends.cudnn.enabled = config.CUDNN.ENABLED
 
     # Setup model
-    model = models.pose_stacked_hg.get_pose_net(config, is_train=True)
+    model = models.pose_stacked_hg.get_pose_net(config)
     
     # copy model file
     print("Copying model file...")

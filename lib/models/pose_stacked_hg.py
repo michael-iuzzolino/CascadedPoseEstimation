@@ -1,6 +1,5 @@
 import torch
 from torch import nn
-from models import tdl
 import utils.flops_benchmark as flops_benchmark
   
 class IdentityMapping(nn.Module):
@@ -184,10 +183,12 @@ class HourGlass(nn.Module):
     super(HourGlass, self).__init__()
     self._stack_i = stack_i
     self._merge_mode = merge_mode
+    self._single_head = kwargs.get("single_head")
     
     # Pooling and upsampling ops
     self.pool = nn.MaxPool2d((2,2))
     self.up = nn.Upsample(scale_factor=2, mode="nearest")
+    self.relu = nn.ReLU()
     
     self.use_conversion_conv = False
     if hidden_channels and in_channels != hidden_channels:
@@ -274,6 +275,30 @@ class HourGlass(nn.Module):
         padding=1
     )
     
+    if self._single_head:
+      # Feature map
+      self.feature_map = nn.Sequential(
+        MultiScaleResblock(
+            in_channels=in_channels,
+            out_channels=in_channels,
+            **kwargs,
+        ),
+        nn.Conv2d(in_channels, in_channels, kernel_size=1, stride=1),
+        nn.BatchNorm2d(in_channels),
+        self.relu,
+      )
+
+      # Logit map
+      self.logit_map = nn.Sequential(
+        nn.Conv2d(in_channels, n_joints, kernel_size=1, stride=1)
+      )
+
+      # Remaps
+      self.remap = nn.Sequential(
+        nn.Conv2d(n_joints, in_channels, kernel_size=1, stride=1),
+        self.relu,
+      )
+    
   def forward(self, x):
     if self.use_conversion_conv:
       x = self.conversion_in_conv(x)
@@ -294,25 +319,68 @@ class HourGlass(nn.Module):
     
     if self.use_conversion_conv:
       out = self.conversion_out_conv(out)
-      
-    return out
+    
+    if self._single_head:
+      features = self.feature_map(out)
+      logits = self.logit_map(features)
+      remap_i = self.remap(logits)
+      residual = features + remap_i
+      return residual, logits
+    else:
+      return out
   
+  
+def create_maps(n_features, n_joints, n_stacks, activation=nn.ReLU()):
+  feature_mappings = nn.ModuleList([
+      nn.Sequential(
+        MultiScaleResblock(
+            in_channels=n_features, 
+            out_channels=n_features,
+        ),
+        nn.Conv2d(n_features, n_features, kernel_size=1, stride=1),
+        nn.BatchNorm2d(n_features),
+        activation,
+      )
+    for i in range(n_stacks)
+  ])
+  
+  
+  # Logit maps
+  logit_maps = nn.ModuleList([
+      nn.Sequential(nn.Conv2d(n_features, n_joints, kernel_size=1, stride=1))
+    for i in range(n_stacks)
+  ])
+
+  # Remaps
+  remaps = nn.ModuleList([
+      nn.Sequential(
+        nn.Conv2d(n_joints, n_features, kernel_size=1, stride=1),
+        activation,
+      )
+    for i in range(n_stacks)
+  ])
+
+  return feature_mappings, logit_maps, remaps
+
   
 class PoseNet(nn.Module):
-  def __init__(self, 
-               n_stacks=1, 
-               double_stack=False,
-               n_double_features=256,
-               n_features=128, 
-               n_joints=16, 
-               merge_mode="concat", 
-               **kwargs):
+  def __init__(
+      self, 
+      n_stacks=1, 
+      double_stack=False,
+      n_double_features=256,
+      n_features=128, 
+      n_joints=16, 
+      merge_mode="concat", 
+      **kwargs
+  ):
     super(PoseNet, self).__init__()
     self._n_stacks = n_stacks
     self._n_features = n_features
     self._n_double_features = n_double_features
     self._double_stack = double_stack
     self._merge_mode = merge_mode
+    self._single_head = kwargs.get("single_head")
     self._kwargs = kwargs
     self.relu = nn.ReLU()
     
@@ -325,34 +393,14 @@ class PoseNet(nn.Module):
       self._n_stacks *= 2
     
     # Feature maps
-    self.feature_maps = nn.ModuleList([
-        nn.Sequential(
-          MultiScaleResblock(
-              in_channels=n_features, 
-              out_channels=n_features,
-          ),
-          nn.Conv2d(n_features, n_features, kernel_size=1, stride=1),
-          nn.BatchNorm2d(n_features),
-          self.relu,
-        )
-      for i in range(self._n_stacks)
-    ])
-    
-    # Logit maps
-    self.logit_maps = nn.ModuleList([
-        nn.Sequential(nn.Conv2d(n_features, n_joints, kernel_size=1, stride=1))
-      for i in range(self._n_stacks)
-    ])
-    
-    # Remaps
-    self.remaps = nn.ModuleList([
-        nn.Sequential(
-          nn.Conv2d(n_joints, n_features, kernel_size=1, stride=1),
-          self.relu,
-        )
-      for i in range(self._n_stacks)
-    ])
-    
+    if not self._single_head:
+      self.feature_maps, self.logit_maps, self.remaps = create_maps(
+        n_features, 
+        n_joints,
+        n_stacks=self._n_stacks, 
+        activation=self.relu,
+      )
+
   def _setup_hgs(self):
     if self._kwargs.get("share_weights", False):
       print("Sharing weights!")
@@ -430,15 +478,20 @@ class PoseNet(nn.Module):
         flops_benchmark.init(self)
       identity = x.clone()
       hg_out = self.hgs[stack_i](x)
-      features_i = self.feature_maps[stack_i](hg_out)
-      logit_i = self.logit_maps[stack_i](features_i)
+      if self._single_head:
+        residual, logit_i = hg_out
+      else:
+        features_i = self.feature_maps[stack_i](hg_out)
+        logit_i = self.logit_maps[stack_i](features_i)
+        residual = features_i + self.remaps[stack_i](logit_i)
+        
       logits.append(logit_i)
-      residual = features_i + self.remaps[stack_i](logit_i)
       x = identity + residual
+      
+      # Check flop logging
       if log_flops:
         n_flops = self.compute_total_flops()
         total_flops.append(n_flops)
-
         self.cleanup_flop_hooks()
 
     logits = torch.stack(logits)
@@ -447,7 +500,7 @@ class PoseNet(nn.Module):
     return logits
 
 
-def get_pose_net(cfg, is_train, **kwargs):
+def get_pose_net(cfg, **kwargs):
   n_hg_stacks = cfg.MODEL.EXTRA.N_HG_STACKS
   if "SHARE_HG_WEIGHTS" in cfg.MODEL.EXTRA:
     share_weights = cfg.MODEL.EXTRA.SHARE_HG_WEIGHTS
@@ -462,6 +515,7 @@ def get_pose_net(cfg, is_train, **kwargs):
       merge_mode=cfg.MODEL.MERGE_MODE,
       identity_gating_mode="per_channel",
       share_weights=share_weights,
+      single_head=cfg.MODEL.EXTRA.get("SINGLE_HEAD")
   )
 
   return model

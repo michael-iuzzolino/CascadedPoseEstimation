@@ -199,7 +199,7 @@ def main():
     torch.backends.cudnn.enabled = config.CUDNN.ENABLED
     
     # Setup model
-    model = models.pose_stacked_hg.get_pose_net(config, is_train=False)
+    model = models.pose_stacked_hg.get_pose_net(config)
       
     # Load state dict
     state_dict = get_state_dict(
