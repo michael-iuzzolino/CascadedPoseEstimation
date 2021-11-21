@@ -173,7 +173,7 @@ def main():
           teacher_td = teacher_td.replace("_", ".")
         teacher_td = float(teacher_td)
         output_dir = f"{output_dir}__distill__TD_{teacher_td}"
-
+    
     # Setup output dir
     output_dir_tmp = os.path.sep.join(output_dir.split(os.path.sep)[1:])
     final_result_root = os.path.join(args.result_root, output_dir_tmp)
@@ -182,7 +182,7 @@ def main():
     
     # Save output save root
     save_root = final_result_root.replace("/hdd/", "/hdd3/")
-    save_root = os.path.join(save_root, args.dataset_key)
+#     save_root = os.path.join(save_root, args.dataset_key)
     
     if not os.path.exists(save_root):
       os.makedirs(save_root)
@@ -221,7 +221,7 @@ def main():
     )
     valid_dataset = eval('dataset.'+config.DATASET.DATASET)(
         config,
-        args.dataset_key,
+        config.DATASET.ROOT,
         config.DATASET.TEST_SET,
         False,
         transforms.Compose([

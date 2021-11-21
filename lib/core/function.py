@@ -220,7 +220,7 @@ def test(
     log_flops = True
     with torch.no_grad():
         for i, (x_data, target, target_weight, meta) in enumerate(val_loader):
-            sys.stdout.write(f"\rBatch {i+1:,}/{len(val_loader):,}...")
+            sys.stdout.write(f"\rBatch {i+1:,}/{len(val_loader):,}, Accuracy: {accs[-1].avg}...")
             sys.stdout.flush()
 
             # Set target and target_weight device
@@ -237,30 +237,26 @@ def test(
                     "outputs": outputs,
                 }, save_path)
             
-            if not save_all_data:
-                # Measure accuracy
-                for acc, output in zip(accs, outputs):
-                    _, avg_acc, cnt, pred = accuracy(
-                        output.cpu().numpy(),
-                        target.cpu().numpy(),
-                        threshold=threshold,
-                    )
-                    acc.update(avg_acc, cnt)
+            # Measure accuracy
+            for acc, output in zip(accs, outputs):
+                _, avg_acc, cnt, pred = accuracy(
+                    output.cpu().numpy(),
+                    target.cpu().numpy(),
+                    threshold=threshold,
+                )
+                acc.update(avg_acc, cnt)
 
-                # Log data
-                if save_root and i < max_batch_logs:
-                    log_outputs(x_data, target, outputs, meta, save_root)
+            # Log data
+            if save_root and i < max_batch_logs:
+                log_outputs(x_data, target, outputs, meta, save_root)
             log_flops = False
     print("\n")
-    if save_all_data:
-        return None, None
-    else:
-        for i, acc in enumerate(accs):
-            print(f"Stack={i}: {acc.avg * 100:0.3f}%")
-        
-        result = [acc.avg * 100 for acc in accs]
-        
-        return result, total_flops
+    for i, acc in enumerate(accs):
+        print(f"Stack={i}: {acc.avg * 100:0.3f}%")
+
+    result = [acc.avg * 100 for acc in accs]
+
+    return result, total_flops
 
 
 # markdown format output

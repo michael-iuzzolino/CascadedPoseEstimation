@@ -1,1 +1,1 @@
-python pose_estimation/train.py --cfg experiments/mpii/hourglass/baseline_4.yaml
+python pose_estimation/train.py --cfg experiments/mpiibaseline_4.yaml

@@ -97,7 +97,7 @@ def get_state_dict(output_dir, config, use_best=False):
 def setup_teacher(config, args, gpus):
     original_cfg = args.cfg
     update_config(args.cfg)
-    # "experiments/mpii/hourglass/hourglass_4__td_1__double.yaml"
+    # "experiments/mpii/hourglass_4__td_1__double.yaml"
     args.cfg = config.MODEL.TEACHER_CFG  
     update_config(args.cfg)
 

@@ -19,7 +19,7 @@ DATASET:
 MODEL:
   NAME: pose_stacked_hg
   MERGE_MODE: "concat"  # concat, addition
-  TEACHER_CFG: "experiments/mpii/hourglass/hourglass_4__td_0_9__double.yaml"
+  TEACHER_CFG: "experiments/mpii/hourglass_4__td_0_9__double.yaml"
   CASCADED: False
   PRETRAINED: '' #'models/pytorch/imagenet/resnet50-19c8e357.pth'
   IMAGE_SIZE:

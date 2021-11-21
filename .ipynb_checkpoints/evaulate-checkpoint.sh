@@ -1,33 +1,41 @@
 #!/bin/bash
 
-CFG_ROOT="experiments/mpii/hourglass"
+CFG_ROOT="experiments/mpii"
 MAX_BATCH_LOGS=2
-DATASET_KEY="test"
+DATASET_KEY="valid"
 
 THRESHOLD_VALS=( 0.5 )
 cfg_list=(
-  # Tied Weights, No Distillation
-  "${CFG_ROOT}/hourglass_8__td_0.yaml"
-  "${CFG_ROOT}/hourglass_8__td_0_25.yaml"
-  "${CFG_ROOT}/hourglass_8__td_0_5.yaml"
-  "${CFG_ROOT}/hourglass_8__td_0_9.yaml"
-  "${CFG_ROOT}/hourglass_8__td_1.yaml"
-
-  # Untied Weights, Distillation
-  "${CFG_ROOT}/hourglass_8__td_0__distill_td_1_untied.yaml"
-  "${CFG_ROOT}/hourglass_8__td_0_25__distill_td_1_untied.yaml"
-  "${CFG_ROOT}/hourglass_8__td_0_5__distill_td_1_untied.yaml"
-  "${CFG_ROOT}/hourglass_8__td_0_9__distill_td_1_untied.yaml"
-  "${CFG_ROOT}/hourglass_8__td_1__distill_td_1_untied.yaml"
 
   # Tied Weights, Distillation
-  "${CFG_ROOT}/hourglass_8__td_0__distill_td_1.yaml"
-  "${CFG_ROOT}/hourglass_8__td_0_25__distill_td_1.yaml"
-  "${CFG_ROOT}/hourglass_8__td_0_5__distill_td_1.yaml"
-  "${CFG_ROOT}/hourglass_8__td_0_9__distill_td_1.yaml"
-  "${CFG_ROOT}/hourglass_8__td_1__distill_td_1.yaml"
+  "${CFG_ROOT}/hourglass_8__td_0__distill_td_1_singlehead.yaml"
+#   "${CFG_ROOT}/hourglass_8__td_0_25__distill_td_1.yaml"
+#   "${CFG_ROOT}/hourglass_8__td_0_5__distill_td_1.yaml"
+#   "${CFG_ROOT}/hourglass_8__td_0_9__distill_td_1.yaml"
+  "${CFG_ROOT}/hourglass_8__td_1__distill_td_1_singlehead.yaml"
 
-  # Untied Weights, No Distillation
+#   # Tied Weights, No Distillation
+#   "${CFG_ROOT}/hourglass_8__td_0.yaml"
+#   "${CFG_ROOT}/hourglass_8__td_0_25.yaml"
+#   "${CFG_ROOT}/hourglass_8__td_0_5.yaml"
+#   "${CFG_ROOT}/hourglass_8__td_0_9.yaml"
+#   "${CFG_ROOT}/hourglass_8__td_1.yaml"
+
+#   # Untied Weights, Distillation
+#   "${CFG_ROOT}/hourglass_8__td_0__distill_td_1_untied.yaml"
+#   "${CFG_ROOT}/hourglass_8__td_0_25__distill_td_1_untied.yaml"
+#   "${CFG_ROOT}/hourglass_8__td_0_5__distill_td_1_untied.yaml"
+#   "${CFG_ROOT}/hourglass_8__td_0_9__distill_td_1_untied.yaml"
+#   "${CFG_ROOT}/hourglass_8__td_1__distill_td_1_untied.yaml"
+
+#   # Tied Weights, Distillation
+#   "${CFG_ROOT}/hourglass_8__td_0__distill_td_1.yaml"
+#   "${CFG_ROOT}/hourglass_8__td_0_25__distill_td_1.yaml"
+#   "${CFG_ROOT}/hourglass_8__td_0_5__distill_td_1.yaml"
+#   "${CFG_ROOT}/hourglass_8__td_0_9__distill_td_1.yaml"
+#   "${CFG_ROOT}/hourglass_8__td_1__distill_td_1.yaml"
+
+#   # Untied Weights, No Distillation
 #   "${CFG_ROOT}/hourglass_8__td_0_untied.yaml"
 #   "${CFG_ROOT}/hourglass_8__td_0_25_untied.yaml"
 #   "${CFG_ROOT}/hourglass_8__td_0_5_untied.yaml"
